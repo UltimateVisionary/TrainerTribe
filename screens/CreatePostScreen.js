@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../constants/colors';
+import { useLanguage } from '../LanguageContext';
 
 const PostTypeSelector = ({ selectedType, onSelect }) => {
+  const { t } = useLanguage();
   return (
     <View style={styles.selectorContainer}>
       <TouchableOpacity
@@ -40,13 +42,13 @@ const PostTypeSelector = ({ selectedType, onSelect }) => {
           styles.selectorText,
           selectedType === 'trainer' && styles.selectorTextActive
         ]}>
-          Post as Trainer
+          {t('postAsTrainer')}
         </Text>
         <Text style={[
           styles.selectorSubtext,
           selectedType === 'trainer' && styles.selectorSubtextActive
         ]}>
-          Create premium fitness content
+          {t('createPremiumFitnessContent')}
         </Text>
         <View style={[
           styles.destinationTag,
@@ -60,7 +62,7 @@ const PostTypeSelector = ({ selectedType, onSelect }) => {
           <Text style={[
             styles.destinationText,
             selectedType === 'trainer' && styles.destinationTextActive
-          ]}>Posts to Fitness Feed</Text>
+          ]}>{t('postsToFitnessFeed')}</Text>
         </View>
       </TouchableOpacity>
 
@@ -86,13 +88,13 @@ const PostTypeSelector = ({ selectedType, onSelect }) => {
           styles.selectorText,
           selectedType === 'lifestyle' && styles.selectorTextActive
         ]}>
-          Post as Lifestyle
+          {t('postAsLifestyle')}
         </Text>
         <Text style={[
           styles.selectorSubtext,
           selectedType === 'lifestyle' && styles.selectorSubtextActive
         ]}>
-          Share your fitness journey
+          {t('shareYourFitnessJourney')}
         </Text>
         <View style={[
           styles.destinationTag,
@@ -106,7 +108,7 @@ const PostTypeSelector = ({ selectedType, onSelect }) => {
           <Text style={[
             styles.destinationText,
             selectedType === 'lifestyle' && styles.destinationTextActive
-          ]}>Posts to Home Feed</Text>
+          ]}>{t('postsToHomeFeed')}</Text>
         </View>
       </TouchableOpacity>
     </View>
@@ -114,9 +116,10 @@ const PostTypeSelector = ({ selectedType, onSelect }) => {
 };
 
 const TrainerPostForm = () => {
+  const { t } = useLanguage();
   return (
     <View style={styles.formContainer}>
-      <Text style={styles.sectionTitle}>Create Premium Content</Text>
+      <Text style={styles.sectionTitle}>{t('createPremiumContent')}</Text>
       
       <TouchableOpacity style={styles.uploadButton}>
         <Ionicons name="cloud-upload-outline" size={32} color={COLORS.primary} />
@@ -172,26 +175,27 @@ const TrainerPostForm = () => {
 };
 
 const LifestylePostForm = () => {
+  const { t } = useLanguage();
   return (
     <View style={styles.formContainer}>
-      <Text style={styles.sectionTitle}>Share Your Journey</Text>
+      <Text style={styles.sectionTitle}>{t('shareYourFitnessJourney')}</Text>
 
       <TouchableOpacity style={styles.uploadButton}>
         <Ionicons name="images-outline" size={32} color={COLORS.primary} />
-        <Text style={styles.uploadText}>Add Photos</Text>
-        <Text style={styles.uploadSubtext}>Share your progress</Text>
+        <Text style={styles.uploadText}>{t('addPhotos')}</Text>
+        <Text style={styles.uploadSubtext}>{t('shareYourProgress')}</Text>
       </TouchableOpacity>
 
       <TextInput
         style={styles.captionInput}
-        placeholder="Write a caption..."
+        placeholder={t('whatsOnYourMind')}
         placeholderTextColor="#666"
         multiline
         numberOfLines={4}
       />
 
       <View style={styles.tagsContainer}>
-        <Text style={styles.tagsLabel}>Add Tags</Text>
+        <Text style={styles.tagsLabel}>{t('addTags')}</Text>
         <View style={styles.tagsList}>
           <TouchableOpacity style={styles.tagButton}>
             <Text style={styles.tagText}>#transformation</Text>
@@ -208,9 +212,23 @@ const LifestylePostForm = () => {
   );
 };
 
-export default function CreatePostScreen({ navigation }) {
+const CreatePostScreen = ({ navigation }) => {
+  const { t } = useLanguage();
   const [postType, setPostType] = useState('lifestyle');
   const [isPosting, setIsPosting] = useState(false);
+
+  // Make sure POST_TYPES is defined
+  // Example placeholder if not imported from elsewhere
+  const POST_TYPES = [
+    { label: 'trainer', subtext: 'createPremiumFitnessContent', destination: 'postsToFitnessFeed' },
+    { label: 'lifestyle', subtext: 'shareYourFitnessJourney', destination: 'postsToHomeFeed' },
+  ];
+  const postTypeOptions = useMemo(() => POST_TYPES.map((postType) => ({
+    ...postType,
+    label: t(postType.label),
+    subtext: t(postType.subtext),
+    destination: t(postType.destination),
+  })), [t]);
 
   const handlePost = async () => {
     setIsPosting(true);
@@ -242,7 +260,7 @@ export default function CreatePostScreen({ navigation }) {
           <Ionicons name="close-outline" size={28} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Create Post</Text>
+          <Text style={styles.headerTitle}>{t('createPost')}</Text>
         </View>
         <TouchableOpacity 
           style={[styles.headerButton, styles.postButton, isPosting && styles.postButtonDisabled]}
@@ -255,7 +273,7 @@ export default function CreatePostScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.postButtonTextContainer}>
-              <Text style={styles.postButtonText}>Post</Text>
+              <Text style={styles.postButtonText}>{t('post')}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -269,12 +287,11 @@ export default function CreatePostScreen({ navigation }) {
           selectedType={postType}
           onSelect={setPostType}
         />
-        
         {postType === 'trainer' ? <TrainerPostForm /> : <LifestylePostForm />}
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -498,4 +515,6 @@ const styles = StyleSheet.create({
     minWidth: 40,
     alignItems: 'center',
   },
-}); 
+});
+
+export default CreatePostScreen;

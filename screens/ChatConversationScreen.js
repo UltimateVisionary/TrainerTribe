@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { useLanguage } from '../LanguageContext';
 import TypingIndicator from '../components/TypingIndicator';
 import MessageReactions from '../components/MessageReactions';
 import * as ImagePicker from 'expo-image-picker';
@@ -135,6 +136,8 @@ const MessageBubble = ({ message, isOwnMessage, onReaction }) => {
     </Pressable>
   );
 };
+
+import { useMemo } from 'react';
 
 const ChatConversationScreen = ({ route, navigation }) => {
   const [message, setMessage] = useState('');

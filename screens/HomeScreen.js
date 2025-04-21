@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,25 +11,28 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// LIVE Q&A image asset
+const LIVE_QA_IMAGE = require('../assets/LIVEQ&A.jpg');
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
+import { useTheme } from '../ThemeContext';
+import { useLanguage } from '../LanguageContext';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import ChatbotModal from '../components/ChatbotModal';
-import { useNavigation } from '@react-navigation/native';
 
-const CreatorCard = ({ image, name, isLive }) => (
-  <TouchableOpacity style={styles.creatorCard}>
+const CreatorCard = ({ image, name, isLive, theme }) => (
+  <TouchableOpacity style={[styles.creatorCard, { backgroundColor: theme.background }]}>
     <Image source={image} style={styles.creatorImage} />
     {isLive && (
-      <View style={styles.liveIndicator}>
-        <Text style={styles.liveText}>LIVE</Text>
+      <View style={[styles.liveIndicator, { backgroundColor: theme.error }]}>
+        <Text style={[styles.liveText, { color: theme.white }]}>{'LIVE'}</Text>
       </View>
     )}
-    <Text style={styles.creatorName} numberOfLines={1}>{name}</Text>
+    <Text style={[styles.creatorName, { color: theme.text }]} numberOfLines={1}>{name}</Text>
   </TouchableOpacity>
 );
 
-const LikeButton = ({ initialLikes }) => {
+const LikeButton = ({ initialLikes, theme }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(initialLikes);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -68,29 +71,29 @@ const LikeButton = ({ initialLikes }) => {
   };
 
   return (
-    <View style={styles.statItem}>
+    <View style={[styles.statItem, { backgroundColor: theme.background }]}>
       <TouchableOpacity onPress={animateLike}>
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
           {isLiked ? (
             <LinearGradient
-              colors={['#4169E1', '#60A5FA']}
+              colors={[theme.primary, theme.primaryLight]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.heartGradient}
             >
-              <Ionicons name="heart" size={20} color="white" />
+              <Ionicons name="heart" size={20} color={theme.white} />
             </LinearGradient>
           ) : (
-            <Ionicons name="heart-outline" size={20} color="#666" />
+            <Ionicons name="heart-outline" size={20} color={theme.grey} />
           )}
         </Animated.View>
       </TouchableOpacity>
-      <Text style={styles.statText}>{likes}</Text>
+      <Text style={[styles.statText, { color: theme.textSecondary }]}>{likes}</Text>
     </View>
   );
 };
 
-const SaveButton = () => {
+const SaveButton = ({ theme }) => {
   const [isSaved, setIsSaved] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -111,82 +114,82 @@ const SaveButton = () => {
   };
 
   return (
-    <TouchableOpacity style={styles.saveButton} onPress={animateSave}>
+    <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.background }]} onPress={animateSave}>
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <Ionicons 
           name={isSaved ? "bookmark" : "bookmark-outline"} 
           size={24} 
-          color={isSaved ? COLORS.error : "#666"} 
+          color={isSaved ? theme.error : theme.grey} 
         />
       </Animated.View>
     </TouchableOpacity>
   );
 };
 
-const PostCard = ({ creator, image, title, description, likes, comments, duration, level }) => (
-  <View style={styles.postCard}>
-    <View style={styles.postHeader}>
+const PostCard = ({ creator, image, title, description, likes, comments, duration, level, theme }) => (
+  <View style={[styles.postCard, { backgroundColor: theme.card }]}>
+    <View style={[styles.postHeader, { backgroundColor: theme.background }]}>
       <Image source={creator.image} style={styles.creatorAvatar} />
       <View style={styles.postHeaderText}>
-        <Text style={styles.creatorTitle}>{creator.name}</Text>
-        <Text style={styles.postTime}>Just now</Text>
+        <Text style={[styles.creatorTitle, { color: theme.text }]}>{creator.name}</Text>
+        <Text style={[styles.postTime, { color: theme.textSecondary }]}>{'Just now'}</Text>
       </View>
-      <SaveButton />
+      <SaveButton theme={theme} />
     </View>
     <Image source={image} style={styles.postImage} />
-    <View style={styles.postContent}>
-      <Text style={styles.postTitle}>{title}</Text>
-      <Text style={styles.postDescription} numberOfLines={2}>{description}</Text>
+    <View style={[styles.postContent, { backgroundColor: theme.background }]}>
+      <Text style={[styles.postTitle, { color: theme.text }]}>{title}</Text>
+      <Text style={[styles.postDescription, { color: theme.textSecondary }]} numberOfLines={2}>{description}</Text>
       <View style={styles.postMetadata}>
         <View style={styles.metadataItem}>
-          <Ionicons name="time-outline" size={16} color="#666" />
-          <Text style={styles.metadataText}>{duration}</Text>
+          <Ionicons name="time-outline" size={16} color={theme.grey} />
+          <Text style={[styles.metadataText, { color: theme.textSecondary }]}>{duration}</Text>
         </View>
         <View style={styles.metadataItem}>
-          <Ionicons name="fitness-outline" size={16} color="#666" />
-          <Text style={styles.metadataText}>{level}</Text>
+          <Ionicons name="fitness-outline" size={16} color={theme.grey} />
+          <Text style={[styles.metadataText, { color: theme.textSecondary }]}>{level}</Text>
         </View>
       </View>
       <View style={styles.postStats}>
-        <LikeButton initialLikes={likes} />
-        <View style={styles.statItem}>
-          <Ionicons name="chatbubble-outline" size={20} color="#666" />
-          <Text style={styles.statText}>{comments}</Text>
+        <LikeButton initialLikes={likes} theme={theme} />
+        <View style={[styles.statItem, { backgroundColor: theme.background }]}>
+          <Ionicons name="chatbubble-outline" size={20} color={theme.grey} />
+          <Text style={[styles.statText, { color: theme.textSecondary }]}>{comments}</Text>
         </View>
       </View>
     </View>
   </View>
 );
 
-const ProgressCard = ({ title, progress, target }) => (
-  <View style={styles.progressCard}>
-    <Text style={styles.progressTitle}>{title}</Text>
+const ProgressCard = ({ title, progress, target, theme }) => (
+  <View style={[styles.progressCard, { backgroundColor: theme.card }]}>
+    <Text style={[styles.progressTitle, { color: theme.text }]}>{title}</Text>
     <View style={styles.progressBar}>
-      <View style={[styles.progressFill, { width: `${(progress / target) * 100}%` }]} />
+      <View style={[styles.progressFill, { width: `${(progress / target) * 100}%`, backgroundColor: theme.primary }]} />
     </View>
-    <Text style={styles.progressText}>{progress}/{target}</Text>
+    <Text style={[styles.progressText, { color: theme.textSecondary }]}>{progress}/{target}</Text>
   </View>
 );
 
-const MealPlanCard = ({ title, image, calories, meals, duration, dietType }) => (
-  <View style={styles.postCard}>
-    <View style={styles.postHeader}>
+const MealPlanCard = ({ title, image, calories, meals, duration, dietType, theme }) => (
+  <View style={[styles.postCard, { backgroundColor: theme.card }]}>
+    <View style={[styles.postHeader, { backgroundColor: theme.background }]}>
       <View style={styles.postHeaderText}>
-        <Text style={styles.postTitle}>{title}</Text>
-        <Text style={styles.postTime}>{duration}</Text>
+        <Text style={[styles.postTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[styles.postTime, { color: theme.textSecondary }]}>{duration}</Text>
       </View>
-      <SaveButton />
+      <SaveButton theme={theme} />
     </View>
     <Image source={image} style={styles.postImage} />
-    <View style={styles.postContent}>
+    <View style={[styles.postContent, { backgroundColor: theme.background }]}>
       <View style={styles.mealPlanMetadata}>
         <View style={styles.metadataItem}>
-          <Ionicons name="flame-outline" size={16} color="#666" />
-          <Text style={styles.metadataText}>{calories} cal/day</Text>
+          <Ionicons name="flame-outline" size={16} color={theme.grey} />
+          <Text style={[styles.metadataText, { color: theme.textSecondary }]}>{calories} cal/day</Text>
         </View>
         <View style={styles.metadataItem}>
-          <Ionicons name="restaurant-outline" size={16} color="#666" />
-          <Text style={styles.metadataText}>{meals} meals/day</Text>
+          <Ionicons name="restaurant-outline" size={16} color={theme.grey} />
+          <Text style={[styles.metadataText, { color: theme.textSecondary }]}>{meals} meals/day</Text>
         </View>
         <View style={styles.dietTypeBadge}>
           <Text style={styles.dietTypeText}>{dietType}</Text>
@@ -196,70 +199,50 @@ const MealPlanCard = ({ title, image, calories, meals, duration, dietType }) => 
   </View>
 );
 
-const CategoryButton = ({ title, isActive, onPress }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+const CategoryButton = ({ title, isActive, onPress, theme }) => {
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const animateHover = (isPressing) => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: isPressing ? 0.95 : 1,
-        tension: 40,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: isPressing ? 1 : 0,
-        duration: 150,
-        useNativeDriver: true,
-      })
-    ]).start();
-  };
+  useEffect(() => {
+    Animated.timing(opacityAnim, {
+      toValue: isActive ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [isActive]);
 
   return (
-    <Pressable
-      onPressIn={() => animateHover(true)}
-      onPressOut={() => animateHover(false)}
+    <TouchableOpacity
+      style={[
+        styles.categoryButton,
+        isActive && { backgroundColor: theme.primary },
+        !isActive && { backgroundColor: theme.card },
+      ]}
+      activeOpacity={0.85}
       onPress={onPress}
-      style={styles.categoryButtonWrapper}
     >
       <Animated.View
         style={[
-          styles.categoryButton,
-          isActive && styles.categoryButtonActive,
-          {
-            transform: [{ scale: scaleAnim }],
-          }
+          StyleSheet.absoluteFill,
+          styles.categoryButtonGlow,
+          { opacity: opacityAnim, backgroundColor: theme.primary },
+        ]}
+      />
+      <Text
+        style={[
+          styles.categoryButtonText,
+          isActive && { color: theme.white, fontWeight: '600' },
+          !isActive && { color: theme.text },
         ]}
       >
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            styles.categoryButtonGlow,
-            { opacity: opacityAnim }
-          ]}
-        >
-          <LinearGradient
-            colors={['rgba(65, 105, 225, 0.2)', 'rgba(96, 165, 250, 0.2)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
-        <Text
-          style={[
-            styles.categoryButtonText,
-            isActive && styles.categoryButtonTextActive
-          ]}
-        >
-          {title}
-        </Text>
-      </Animated.View>
-    </Pressable>
+        {title}
+      </Text>
+    </TouchableOpacity>
   );
 };
 
 export default function HomeScreen() {
+  const { t, language, key: languageKey } = useLanguage();
+  const { theme } = useTheme();
   const [activeCategory, setActiveCategory] = useState('all');
   const [isChatbotVisible, setIsChatbotVisible] = useState(false);
   const navigation = useNavigation();
@@ -373,24 +356,24 @@ export default function HomeScreen() {
 
   const renderContent = (item) => {
     if (item.type === 'nutrition') {
-      return <MealPlanCard key={item.title} {...item} />;
+      return <MealPlanCard key={item.title} {...item} theme={theme} />;
     }
-    return <PostCard key={item.title} {...item} />;
+    return <PostCard key={item.title} {...item} theme={theme} />;
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} key={languageKey}>
+      <View style={[styles.header, { backgroundColor: theme.background }]}>
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={COLORS.grey} style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color={theme.grey} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search all creators"
-            placeholderTextColor={COLORS.text.primary}
+            placeholder={t('searchAllCreators')}
+            placeholderTextColor={theme.textSecondary}
           />
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-          <Ionicons name="settings-outline" size={24} color={COLORS.primary} />
+          <Ionicons name="settings-outline" size={24} color={theme.primary} />
         </TouchableOpacity>
       </View>
 
@@ -398,24 +381,26 @@ export default function HomeScreen() {
         {/* Live Creators */}
         <View style={styles.creatorsContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Live Now</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('liveNow')}</Text>
             <TouchableOpacity>
-              <Text style={styles.seeAllButton}>See All</Text>
+              <Text style={[styles.seeAllButton, { color: theme.primary }]}>{t('seeAll')}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {creators.map((creator) => (
-              <CreatorCard key={creator.id} {...creator} />
+              <CreatorCard key={creator.id} {...creator} theme={theme} />
             ))}
           </ScrollView>
         </View>
 
+        {/* LIVE Q&A Banner */}
+
         {/* Daily Progress Section */}
         <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>Today's Progress</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('todaysProgress')}</Text>
           <View style={styles.progressContainer}>
-            <ProgressCard title="Daily Workout Goal" progress={2} target={3} />
-            <ProgressCard title="Weekly Streak" progress={5} target={7} />
+            <ProgressCard title={t('dailyWorkoutGoal')} progress={2} target={3} theme={theme} />
+            <ProgressCard title={t('weeklyStreak')} progress={5} target={7} theme={theme} />
           </View>
         </View>
 
@@ -423,31 +408,35 @@ export default function HomeScreen() {
         <View style={styles.categoriesContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <CategoryButton
-              title="All"
+              title={t('allContent')}
               isActive={activeCategory === 'all'}
               onPress={() => setActiveCategory('all')}
+              theme={theme}
             />
             <CategoryButton
-              title="Videos"
+              title={t('videos')}
               isActive={activeCategory === 'videos'}
               onPress={() => setActiveCategory('videos')}
+              theme={theme}
             />
             <CategoryButton
-              title="Images"
+              title={t('images')}
               isActive={activeCategory === 'images'}
               onPress={() => setActiveCategory('images')}
+              theme={theme}
             />
             <CategoryButton
-              title="Nutrition"
+              title={t('nutrition')}
               isActive={activeCategory === 'nutrition'}
               onPress={() => setActiveCategory('nutrition')}
+              theme={theme}
             />
           </ScrollView>
         </View>
 
         {/* Feed */}
         <View style={styles.feedContainer}>
-          <Text style={styles.sectionTitle}>For You</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('forYou')}</Text>
           {getFilteredContent().map(item => renderContent(item))}
         </View>
       </ScrollView>
@@ -457,12 +446,12 @@ export default function HomeScreen() {
         onPress={() => setIsChatbotVisible(true)}
       >
         <LinearGradient
-          colors={[COLORS.primary, '#60A5FA']}
+          colors={[theme.primary, '#60A5FA']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
         >
-          <Ionicons name="chatbubble-ellipses" size={24} color={COLORS.white} />
+          <Ionicons name="chatbubble-ellipses" size={24} color={theme.white} />
         </LinearGradient>
       </TouchableOpacity>
 
@@ -477,33 +466,30 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#ccc',
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.lightGrey,
+    backgroundColor: '#f2f2f2',
     borderRadius: 10,
     marginRight: 12,
     paddingHorizontal: 12,
   },
   searchIcon: {
     marginRight: 8,
-    color: COLORS.grey,
   },
   searchInput: {
     flex: 1,
     height: 40,
     fontSize: 16,
-    color: COLORS.text.primary,
   },
   progressSection: {
     padding: 16,
@@ -515,7 +501,7 @@ const styles = StyleSheet.create({
   },
   progressCard: {
     flex: 1,
-    backgroundColor: COLORS.lightGrey,
+    backgroundColor: '#f2f2f2',
     borderRadius: 12,
     padding: 12,
     marginHorizontal: 4,
@@ -523,56 +509,52 @@ const styles = StyleSheet.create({
   progressTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.text.primary,
-    marginBottom: 8,
   },
   progressBar: {
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: '#ccc',
     borderRadius: 2,
     marginBottom: 4,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#4169E1',
     borderRadius: 2,
   },
   progressText: {
     fontSize: 12,
-    color: COLORS.text.secondary,
   },
   categoriesContainer: {
     paddingVertical: 14,
     paddingRight: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  categoryButtonWrapper: {
-    marginHorizontal: 6,
+    borderBottomColor: '#ccc',
   },
   categoryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 22,
-    backgroundColor: COLORS.lightGrey,
+    marginHorizontal: 6,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
   categoryButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#4169E1',
   },
   categoryButtonGlow: {
     borderRadius: 22,
     overflow: 'hidden',
   },
   categoryButtonText: {
-    color: COLORS.text.primary,
     fontSize: 15,
     fontWeight: '500',
   },
   categoryButtonTextActive: {
-    color: COLORS.white,
     fontSize: 15,
     fontWeight: '600',
+    color: '#fff',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -584,12 +566,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text.primary,
   },
   seeAllButton: {
-    color: COLORS.primary,
     fontSize: 14,
     fontWeight: '500',
+    color: '#4169E1',
   },
   creatorsContainer: {
     paddingVertical: 16,
@@ -612,31 +593,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    backgroundColor: COLORS.error,
+    backgroundColor: '#FF3B30',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
     zIndex: 1,
   },
   liveText: {
-    color: COLORS.white,
     fontSize: 10,
     fontWeight: '600',
+    color: '#fff',
   },
   creatorName: {
     fontSize: 12,
-    color: COLORS.text.primary,
-    textAlign: 'center',
   },
   feedContainer: {
     padding: 16,
     paddingBottom: 100,
   },
   postCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: COLORS.grey,
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -662,11 +641,9 @@ const styles = StyleSheet.create({
   creatorTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text.primary,
   },
   postTime: {
     fontSize: 12,
-    color: COLORS.text.secondary,
   },
   saveButton: {
     padding: 4,
@@ -682,17 +659,12 @@ const styles = StyleSheet.create({
   postTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 8,
   },
   postDescription: {
     fontSize: 14,
-    color: COLORS.text.secondary,
-    marginBottom: 12,
   },
   postMetadata: {
     flexDirection: 'row',
-    marginBottom: 12,
   },
   metadataItem: {
     flexDirection: 'row',
@@ -702,13 +674,12 @@ const styles = StyleSheet.create({
   metadataText: {
     marginLeft: 4,
     fontSize: 14,
-    color: COLORS.text.secondary,
   },
   postStats: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: '#ccc',
     paddingTop: 12,
   },
   statItem: {
@@ -719,7 +690,6 @@ const styles = StyleSheet.create({
   statText: {
     marginLeft: 4,
     fontSize: 14,
-    color: COLORS.text.secondary,
   },
   mealPlanMetadata: {
     flexDirection: 'row',
@@ -728,15 +698,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dietTypeBadge: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: '#4169E1',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   dietTypeText: {
-    color: COLORS.primary,
+    color: '#fff',
     fontSize: 12,
     fontWeight: '500',
+    color: '#fff',
   },
   heartGradient: {
     width: 20,

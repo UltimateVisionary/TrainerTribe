@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,46 +10,57 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
+import { useLanguage } from '../LanguageContext';
+import { useTheme } from '../ThemeContext';
 
-const SettingItem = ({ icon, title, subtitle, onPress, hasSwitch, value, onValueChange, showArrow = true }) => (
+const SettingItem = ({ icon, title, subtitle, onPress, hasSwitch, value, onValueChange, showArrow = true, themedStyles, theme }) => (
   <TouchableOpacity 
-    style={styles.settingItem}
+    style={themedStyles.settingItem}
     onPress={onPress}
     disabled={hasSwitch}
   >
-    <View style={styles.settingIcon}>
-      <Ionicons name={icon} size={22} color={COLORS.primary} />
+    <View style={themedStyles.settingIcon}>
+      <Ionicons name={icon} size={22} color={theme.primary} />
     </View>
-    <View style={styles.settingContent}>
-      <Text style={styles.settingTitle}>{title}</Text>
-      {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+    <View style={themedStyles.settingContent}>
+      <Text style={themedStyles.settingTitle}>{title}</Text>
+      {subtitle && <Text style={themedStyles.settingSubtitle}>{subtitle}</Text>}
     </View>
     {hasSwitch ? (
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: COLORS.grey, true: COLORS.primaryLight }}
-        thumbColor={value ? COLORS.primary : '#f4f3f4'}
+        trackColor={{ false: theme.grey, true: theme.primaryLight }}
+        thumbColor={value ? theme.primary : '#f4f3f4'}
       />
     ) : showArrow ? (
-      <Ionicons name="chevron-forward" size={20} color={COLORS.grey} />
+      <Ionicons name="chevron-forward" size={20} color={theme.grey} />
     ) : null}
   </TouchableOpacity>
 );
 
-const SettingsSection = ({ title, children }) => (
-  <View style={styles.settingsSection}>
-    <Text style={styles.sectionTitle}>{title}</Text>
-    <View style={styles.sectionContent}>
+const SettingsSection = ({ title, children, themedStyles }) => (
+  <View style={themedStyles.settingsSection}>
+    <Text style={themedStyles.sectionTitle}>{title}</Text>
+    <View style={themedStyles.sectionContent}>
       {children}
     </View>
   </View>
 );
 
 export default function SettingsScreen({ navigation }) {
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = React.useState(false);
+  const { t, language, key: languageKey, setLanguage } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [darkModeEnabled, setDarkModeEnabled] = useState(theme.mode === 'dark');
+
+  useEffect(() => {
+    setDarkModeEnabled(theme.mode === 'dark');
+  }, [theme]);
+
+  const handleToggleDarkMode = () => {
+    toggleTheme();
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -75,185 +86,203 @@ export default function SettingsScreen({ navigation }) {
     );
   };
 
+  const themedStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      backgroundColor: theme.background,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    content: {
+      flex: 1,
+    },
+    settingsSection: {
+      marginTop: 24,
+      paddingHorizontal: 16,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.primary,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    sectionContent: {
+      backgroundColor: theme.card,
+      borderRadius: 12,
+      overflow: 'hidden',
+      shadowColor: theme.grey,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    settingItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: theme.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    settingIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: theme.primaryLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    settingContent: {
+      flex: 1,
+    },
+    settingTitle: {
+      fontSize: 16,
+      color: theme.text,
+      fontWeight: '500',
+    },
+    settingSubtitle: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      marginTop: 2,
+    },
+    logoutButton: {
+      margin: 24,
+      padding: 16,
+      backgroundColor: theme.error + '22',
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    logoutText: {
+      color: theme.error,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    versionText: {
+      textAlign: 'center',
+      color: theme.textSecondary,
+      fontSize: 13,
+      marginBottom: 24,
+    },
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={themedStyles.container} key={languageKey}>
+      <View style={themedStyles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={themedStyles.headerTitle}>{t('settings')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content}>
-        <SettingsSection title="Account">
+      <ScrollView style={themedStyles.content}>
+        <SettingsSection title={t('account')} themedStyles={themedStyles}>
           <SettingItem
             icon="person-outline"
-            title="Personal Information"
-            subtitle="Update your profile details"
+            title={t('personalInfo')}
+            subtitle={t('updateProfile')}
             onPress={() => navigation.navigate('EditProfile')}
+            themedStyles={themedStyles}
+            theme={theme}
           />
+          
           <SettingItem
             icon="card-outline"
-            title="Subscription"
-            subtitle="Manage your subscription"
-            onPress={() => navigation.navigate('Subscription')}
+            title={t('subscription')}
+            subtitle={t('manageSubscription')}
+            onPress={() => navigation.navigate('SubscriptionScreen')}
+            themedStyles={themedStyles}
+            theme={theme}
           />
           <SettingItem
-            icon="shield-checkmark-outline"
-            title="Privacy"
-            subtitle="Manage your privacy settings"
-            onPress={() => navigation.navigate('Privacy')}
+            icon="pricetags-outline"
+            title="Pricing"
+            subtitle="View all plans"
+            onPress={() => navigation.navigate('Pricing')}
+            themedStyles={themedStyles}
+            theme={theme}
           />
         </SettingsSection>
 
-        <SettingsSection title="Preferences">
+        <SettingsSection title={t('preferences')} themedStyles={themedStyles}>
+          <SettingItem
+            icon="language-outline"
+            title={t('language')}
+            subtitle={(() => {
+              if (language === 'es') return t('spanish');
+              if (language === 'zh') return t('chinese');
+              return t('english');
+            })()}
+            onPress={() => navigation.navigate('Language')}
+            themedStyles={themedStyles}
+            theme={theme}
+          />
           <SettingItem
             icon="notifications-outline"
-            title="Notifications"
+            title={t('notifications')}
             hasSwitch
             value={notificationsEnabled}
             onValueChange={setNotificationsEnabled}
+            themedStyles={themedStyles}
+            theme={theme}
           />
           <SettingItem
             icon="moon-outline"
-            title="Dark Mode"
+            title={t('darkMode')}
             hasSwitch
             value={darkModeEnabled}
-            onValueChange={setDarkModeEnabled}
-          />
-          <SettingItem
-            icon="language-outline"
-            title="Language"
-            subtitle="English"
-            onPress={() => navigation.navigate('Language')}
+            onValueChange={handleToggleDarkMode}
+            themedStyles={themedStyles}
+            theme={theme}
           />
         </SettingsSection>
-
-        <SettingsSection title="Support">
+        <SettingsSection title={t('support')} themedStyles={themedStyles}>
           <SettingItem
             icon="help-circle-outline"
-            title="Help Center"
-            onPress={() => navigation.navigate('HelpCenter')}
-          />
-          <SettingItem
-            icon="chatbubble-outline"
-            title="Contact Us"
-            onPress={() => navigation.navigate('ContactUs')}
+            title={t('helpCenter')}
+            onPress={() => navigation.navigate('HelpCenterScreen')}
+            themedStyles={themedStyles}
+            theme={theme}
           />
           <SettingItem
             icon="document-text-outline"
-            title="Terms of Service"
-            onPress={() => navigation.navigate('Terms')}
+            title={t('terms')}
+            onPress={() => navigation.navigate('TermsOfServiceScreen')}
+            themedStyles={themedStyles}
+            theme={theme}
           />
           <SettingItem
             icon="lock-closed-outline"
-            title="Privacy Policy"
-            onPress={() => navigation.navigate('PrivacyPolicy')}
+            title={t('privacyPolicy')}
+            onPress={() => navigation.navigate('PrivacyPolicyScreen')}
+            themedStyles={themedStyles}
+            theme={theme}
           />
         </SettingsSection>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity style={themedStyles.logoutButton} onPress={handleLogout}>
+          <Text style={themedStyles.logoutText}>{t('logout')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>Version 1.0.0</Text>
+        <Text style={themedStyles.versionText}>{t('version')} 1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-  content: {
-    flex: 1,
-  },
-  settingsSection: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  sectionContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: COLORS.grey,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  settingIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  settingContent: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 16,
-    color: COLORS.text.primary,
-    fontWeight: '500',
-  },
-  settingSubtitle: {
-    fontSize: 13,
-    color: COLORS.text.secondary,
-    marginTop: 2,
-  },
-  logoutButton: {
-    margin: 24,
-    padding: 16,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  logoutText: {
-    color: '#DC2626',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  versionText: {
-    textAlign: 'center',
-    color: COLORS.text.secondary,
-    fontSize: 13,
-    marginBottom: 24,
-  },
-}); 

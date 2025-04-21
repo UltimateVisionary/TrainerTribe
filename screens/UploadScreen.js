@@ -1,10 +1,14 @@
 import React from 'react';
 import { SafeAreaView, Text, StyleSheet } from 'react-native';
+import { useLanguage } from '../LanguageContext';
+
+import { useMemo } from 'react';
 
 export default function UploadScreen() {
+  const { t } = useLanguage();
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.text}>Upload Content Screen</Text>
+      <Text style={styles.text}>{t('upload') || 'Upload'}</Text>
     </SafeAreaView>
   );
 }

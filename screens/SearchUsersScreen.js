@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { useLanguage } from '../LanguageContext';
 
 const DefaultAvatar = ({ name }) => {
   const initials = name
@@ -46,6 +47,8 @@ const DUMMY_USERS = [
     status: 'online',
   },
 ];
+
+import { useMemo } from 'react';
 
 const SearchUsersScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');

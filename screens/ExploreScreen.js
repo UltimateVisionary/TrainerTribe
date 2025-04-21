@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,123 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
+import { useLanguage } from '../LanguageContext';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../ThemeContext';
+import SocialLeaderboard from '../components/SocialLeaderboard';
+import WorkoutCategoryCard from '../components/WorkoutCategoryCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import ChatbotModal from '../components/ChatbotModal';
-import WorkoutCategoryCard from '../components/WorkoutCategoryCard';
+
+// Raw data arrays moved outside component
+const WORKOUTS = [
+  {
+    id: 'workout-1',
+    typeKey: 'workout',
+    titleKey: 'fullBodyHIITWorkout',
+    duration: '45 min',
+    calories: '400',
+    levelKey: 'intermediate',
+    image: require('../assets/trainer1.jpg'),
+    creator: {
+      nameKey: 'theSculptedVegan',
+      image: require('../assets/trainer1.jpg'),
+    },
+  },
+  {
+    id: 'workout-2',
+    typeKey: 'workout',
+    titleKey: 'coreStrengthBasics',
+    duration: '30 min',
+    calories: '250',
+    levelKey: 'beginner',
+    image: require('../assets/trainer2.jpg'),
+    creator: {
+      nameKey: 'laurasFitness',
+      image: require('../assets/trainer2.jpg'),
+    },
+  },
+];
+
+const PROGRAMS = [
+  {
+    id: 'program-1',
+    typeKey: 'program',
+    titleKey: 'thirtyDayYogaChallenge',
+    duration: '30 days',
+    levelKey: 'allLevels',
+    image: require('../assets/trainer2.jpg'),
+    creator: {
+      nameKey: 'laurasFitness',
+      image: require('../assets/trainer2.jpg'),
+    },
+  },
+  {
+    id: 'program-2',
+    typeKey: 'program',
+    titleKey: 'eightWeekBodyTransform',
+    duration: '8 weeks',
+    levelKey: 'advanced',
+    image: require('../assets/trainer1.jpg'),
+    creator: {
+      nameKey: 'theSculptedVegan',
+      image: require('../assets/trainer1.jpg'),
+    },
+  },
+];
+
+const NUTRITION_CONTENT = [
+  {
+    id: 'nutrition-1',
+    typeKey: 'nutrition',
+    titleKey: 'mealPrepBasics',
+    duration: '7 days',
+    calories: '2000/day',
+    levelKey: 'beginner',
+    image: require('../assets/trainer1.jpg'),
+    creator: {
+      nameKey: 'nutritionPro',
+      image: require('../assets/trainer1.jpg'),
+    },
+  },
+  {
+    id: 'nutrition-2',
+    typeKey: 'nutrition',
+    titleKey: 'plantBasedMealPlan',
+    duration: '14 days',
+    calories: '1800/day',
+    levelKey: 'intermediate',
+    image: require('../assets/trainer2.jpg'),
+    creator: {
+      nameKey: 'veganKitchen',
+      image: require('../assets/trainer2.jpg'),
+    },
+  },
+];
+
+const CATEGORIES = [
+  { titleKey: 'strength', categoryKey: 'strength', count: 128 },
+  { titleKey: 'cardio', categoryKey: 'cardio', count: 95 },
+  { titleKey: 'yoga', categoryKey: 'yoga', count: 89 },
+  { titleKey: 'hiit', categoryKey: 'hiit', count: 76 },
+];
+
+const FEATURED_TRAINERS = [
+  {
+    id: 'trainer-1',
+    nameKey: 'sarahJohnson',
+    specialtyKey: 'hiitAndStrength',
+    rating: '4.9',
+    image: require('../assets/trainer1.jpg'),
+  },
+  {
+    id: 'trainer-2',
+    nameKey: 'mikeChen',
+    specialtyKey: 'yogaAndMindfulness',
+    rating: '4.8',
+    image: require('../assets/trainer2.jpg'),
+  },
+];
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -24,7 +137,6 @@ const COLUMN_WIDTH = (width - 48) / 2;
 const LikeButton = () => {
   const [isLiked, setIsLiked] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const fillAnim = useRef(new Animated.Value(0)).current;
 
   const animateLike = () => {
     setIsLiked(!isLiked);
@@ -40,18 +152,7 @@ const LikeButton = () => {
         useNativeDriver: true,
       }),
     ]).start();
-
-    Animated.timing(fillAnim, {
-      toValue: isLiked ? 0 : 1,
-      duration: 150,
-      useNativeDriver: false,
-    }).start();
   };
-
-  const fillInterpolation = fillAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['transparent', '#4169E1']
-  });
 
   return (
     <TouchableOpacity 
@@ -59,23 +160,27 @@ const LikeButton = () => {
       onPress={animateLike}
     >
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <LinearGradient
-          colors={isLiked ? ['#4169E1', '#60A5FA'] : ['transparent', 'transparent']}
-          style={[StyleSheet.absoluteFill, styles.gradientFill]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Ionicons 
-          name={isLiked ? "heart" : "heart-outline"} 
-          size={24} 
-          color={isLiked ? "transparent" : "#4169E1"}
-        />
+        {isLiked ? (
+          <View style={{ width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}>
+            <LinearGradient
+              colors={['#4169E1', '#60A5FA']}
+              style={{ position: 'absolute', width: 24, height: 24, borderRadius: 12 }}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <Ionicons name="heart" size={20} color="#fff" style={{ position: 'absolute', top: 2, left: 2 }} />
+            <Ionicons name="heart-outline" size={24} color="#4169E1" style={{ position: 'absolute', top: 0, left: 0 }} />
+          </View>
+        ) : (
+          <Ionicons name="heart-outline" size={24} color="#4169E1" style={{ alignSelf: 'center' }} />
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
 };
 
-const ContentCard = ({ image, title, type, creator, duration, level }) => {
+const ContentCard = ({ image, titleKey, typeKey, creator, duration, levelKey }) => {
+  const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
 
@@ -100,7 +205,7 @@ const ContentCard = ({ image, title, type, creator, duration, level }) => {
       style={styles.contentWrapper}
     >
       <LinearGradient
-        colors={['#4169E1', '#60A5FA', '#4169E1']}
+        colors={["#4169E1", "#60A5FA", "#4169E1"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBorder}
@@ -115,7 +220,7 @@ const ContentCard = ({ image, title, type, creator, duration, level }) => {
         >
           <Image source={image} style={styles.contentImage} />
           <View style={styles.contentBadge}>
-            <Text style={styles.badgeText}>{type}</Text>
+            <Text style={styles.badgeText}>{t(typeKey).toUpperCase()}</Text>
           </View>
           {duration && (
             <View style={styles.durationBadge}>
@@ -124,14 +229,14 @@ const ContentCard = ({ image, title, type, creator, duration, level }) => {
             </View>
           )}
           <View style={styles.contentInfo}>
-            <Text style={styles.contentTitle} numberOfLines={2}>{title}</Text>
+            <Text style={styles.contentTitle} numberOfLines={2}>{t(titleKey)}</Text>
             <View style={styles.creatorInfo}>
               <Image source={creator.image} style={styles.creatorAvatar} />
               <Text style={styles.creatorName} numberOfLines={1}>{creator.name}</Text>
             </View>
-            {level && (
+            {levelKey && (
               <View style={styles.levelIndicator}>
-                <Text style={styles.levelText}>{level}</Text>
+                <Text style={styles.levelText}>{t(levelKey)}</Text>
               </View>
             )}
           </View>
@@ -157,6 +262,7 @@ const ContentCard = ({ image, title, type, creator, duration, level }) => {
 };
 
 const CategoryCard = ({ icon, title, count }) => {
+  const { t } = useLanguage();
   const [isPressed, setIsPressed] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
@@ -183,7 +289,7 @@ const CategoryCard = ({ icon, title, count }) => {
       style={styles.categoryWrapper}
     >
       <LinearGradient
-        colors={['#4169E1', '#60A5FA', '#4169E1']}
+        colors={["#4169E1", "#60A5FA", "#4169E1"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBorder}
@@ -197,10 +303,10 @@ const CategoryCard = ({ icon, title, count }) => {
           ]}
         >
           <View style={styles.categoryIcon}>
-            <Ionicons name={icon} size={24} color={COLORS.primary} />
+            <Ionicons name={icon} size={24} color="#fff" />
           </View>
-          <Text style={styles.categoryTitle}>{title}</Text>
-          <Text style={styles.categoryCount}>{count} workouts</Text>
+          <Text style={styles.categoryTitle}>{t(title)}</Text>
+          <Text style={styles.categoryCount}>{count + ' ' + t('workouts')}</Text>
           <Animated.View
             style={[
               styles.gradientOverlay,
@@ -222,7 +328,8 @@ const CategoryCard = ({ icon, title, count }) => {
   );
 };
 
-const TrainerCard = ({ image, name, specialty, rating }) => {
+const TrainerCard = ({ image, nameKey, specialtyKey, rating }) => {
+  const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
 
@@ -247,7 +354,7 @@ const TrainerCard = ({ image, name, specialty, rating }) => {
       style={styles.trainerWrapper}
     >
       <LinearGradient
-        colors={['#4169E1', '#60A5FA', '#4169E1']}
+        colors={["#4169E1", "#60A5FA", "#4169E1"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBorder}
@@ -262,8 +369,8 @@ const TrainerCard = ({ image, name, specialty, rating }) => {
         >
           <Image source={image} style={styles.trainerImage} />
           <View style={styles.trainerInfo}>
-            <Text style={styles.trainerName}>{name}</Text>
-            <Text style={styles.trainerSpecialty}>{specialty}</Text>
+            <Text style={styles.trainerName}>{t(nameKey)}</Text>
+            <Text style={styles.trainerSpecialty}>{t(specialtyKey)}</Text>
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={14} color="#FFD700" />
               <Text style={styles.ratingText}>{rating}</Text>
@@ -356,117 +463,17 @@ const AnimatedArrow = () => {
 };
 
 export default function ExploreScreen() {
+  const navigation = useNavigation();
+  const { t, language, key: languageKey } = useLanguage();
+  const { theme } = useTheme();
   const [activeFilter, setActiveFilter] = useState('all');
   const [isChatbotVisible, setIsChatbotVisible] = useState(false);
 
-  const workouts = [
-    {
-      id: 'workout-1',
-      type: 'workout',
-      title: 'Full Body HIIT Workout',
-      duration: '45 min',
-      calories: '400',
-      level: 'Intermediate',
-      image: require('../assets/trainer1.jpg'),
-      creator: {
-        name: 'The Sculpted Vegan',
-        image: require('../assets/trainer1.jpg'),
-      },
-    },
-    {
-      id: 'workout-2',
-      type: 'workout',
-      title: 'Core Strength Basics',
-      duration: '30 min',
-      calories: '250',
-      level: 'Beginner',
-      image: require('../assets/trainer2.jpg'),
-      creator: {
-        name: "Laura's Fitness",
-        image: require('../assets/trainer2.jpg'),
-      },
-    },
-  ];
-
-  const programs = [
-    {
-      id: 'program-1',
-      type: 'program',
-      title: '30-Day Yoga Challenge',
-      duration: '30 days',
-      level: 'All Levels',
-      image: require('../assets/trainer2.jpg'),
-      creator: {
-        name: "Laura's Fitness",
-        image: require('../assets/trainer2.jpg'),
-      },
-    },
-    {
-      id: 'program-2',
-      type: 'program',
-      title: '8-Week Body Transform',
-      duration: '8 weeks',
-      level: 'Advanced',
-      image: require('../assets/trainer1.jpg'),
-      creator: {
-        name: 'The Sculpted Vegan',
-        image: require('../assets/trainer1.jpg'),
-      },
-    },
-  ];
-
-  const nutritionContent = [
-    {
-      id: 'nutrition-1',
-      type: 'nutrition',
-      title: 'Meal Prep Basics',
-      duration: '7 days',
-      calories: '2000/day',
-      level: 'Beginner',
-      image: require('../assets/trainer1.jpg'),
-      creator: {
-        name: 'Nutrition Pro',
-        image: require('../assets/trainer1.jpg'),
-      },
-    },
-    {
-      id: 'nutrition-2',
-      type: 'nutrition',
-      title: 'Plant-Based Meal Plan',
-      duration: '14 days',
-      calories: '1800/day',
-      level: 'Intermediate',
-      image: require('../assets/trainer2.jpg'),
-      creator: {
-        name: 'Vegan Kitchen',
-        image: require('../assets/trainer2.jpg'),
-      },
-    },
-  ];
-
-  const categories = [
-    { title: 'Strength', count: 128 },
-    { title: 'Cardio', count: 95 },
-    { title: 'Yoga', count: 89 },
-    { title: 'HIIT', count: 76 },
-  ];
-
-  const featuredTrainers = [
-    {
-      id: 'trainer-1',
-      name: 'Sarah Johnson',
-      specialty: 'HIIT & Strength',
-      rating: '4.9',
-      image: require('../assets/trainer1.jpg'),
-    },
-    {
-      id: 'trainer-2',
-      name: 'Mike Chen',
-      specialty: 'Yoga & Mindfulness',
-      rating: '4.8',
-      image: require('../assets/trainer2.jpg'),
-    },
-  ];
+  const workouts = useMemo(() => WORKOUTS.map((workout) => ({ ...workout, title: t(workout.titleKey), creator: { ...workout.creator, name: t(workout.creator.nameKey) } })), [languageKey]);
+  const programs = useMemo(() => PROGRAMS.map((program) => ({ ...program, title: t(program.titleKey), creator: { ...program.creator, name: t(program.creator.nameKey) } })), [languageKey]);
+  const nutritionContent = useMemo(() => NUTRITION_CONTENT.map((nutrition) => ({ ...nutrition, title: t(nutrition.titleKey), creator: { ...nutrition.creator, name: t(nutrition.creator.nameKey) } })), [languageKey]);
+  const categories = useMemo(() => CATEGORIES.map((category) => ({ ...category, title: t(category.titleKey) })), [languageKey]);
+  const featuredTrainers = useMemo(() => FEATURED_TRAINERS.map((trainer) => ({ ...trainer, name: t(trainer.nameKey), specialty: t(trainer.specialtyKey) })), [languageKey]);
 
   const getFilteredContent = () => {
     switch (activeFilter) {
@@ -482,26 +489,88 @@ export default function ExploreScreen() {
   };
 
   const renderContent = (item) => {
+    const { t } = useLanguage();
     return (
       <View style={styles.trendingCard} key={`card-${item.id}`}>
         <ContentCard
           key={`content-${item.id}`}
           image={item.image}
-          title={item.title}
-          type={item.type.toUpperCase()}
+          titleKey={item.titleKey}
+          typeKey={item.typeKey}
           creator={item.creator}
           duration={item.duration}
-          level={item.level}
+          levelKey={item.levelKey}
         />
       </View>
     );
   };
 
+  const themedStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    scrollContent: {
+      paddingBottom: 100,
+    },
+    section: {
+      padding: 8,
+      marginBottom: 4,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.mode === 'dark' ? '#fff' : '#222',
+      marginBottom: 8,
+      marginLeft: 4,
+    },
+    trendingCard: {
+      width: width * 0.7,
+      marginRight: 8,
+      marginBottom: 4,
+    },
+    contentWrapper: {
+      width: width * 0.7,
+      marginRight: 8,
+      marginBottom: 4,
+    },
+    trainerWrapper: {
+      width: width * 0.7,
+      marginRight: 8,
+      marginBottom: 4,
+    },
+    fabButton: {
+      position: 'absolute',
+      bottom: 100,
+      right: 20,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      zIndex: 999,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4.65,
+      elevation: 8,
+    },
+    fabGradient: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 30,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 8,
+    },
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={themedStyles.container} key={languageKey}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={themedStyles.scrollContent}
       >
         <TouchableOpacity style={styles.trainerTribeBanner}>
           <Image 
@@ -511,22 +580,19 @@ export default function ExploreScreen() {
           />
           <View style={styles.bannerOverlay}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>TrainerTribe</Text>
-              <Text style={styles.taglineText}>Discover the{'\n'}perfect trainer,{'\n'}find your tribe today!</Text>
+              <Text style={styles.logoText}>{t('exploreHeroTitle')}</Text>
+              <Text style={styles.heroDescription}>{t('exploreHeroDescription')}</Text>
             </View>
             <View style={styles.connectContainer}>
               <AnimatedArrow />
-              <TouchableOpacity style={styles.connectButton}>
-                <Text style={styles.connectButtonText}>Connect</Text>
+              <TouchableOpacity style={styles.connectButton} onPress={() => navigation.navigate('TrainerDirectory')}>
+                <Text style={styles.connectButtonText}>{t('connectButton')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
+        <SocialLeaderboard />
 
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Discover Your Next Workout</Text>
-          <Text style={styles.welcomeSubtitle}>Find the perfect workout for your goals</Text>
-        </View>
 
         <View style={styles.filterContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -534,51 +600,44 @@ export default function ExploreScreen() {
               style={[styles.filterButton, activeFilter === 'all' && styles.filterButtonActive]}
               onPress={() => setActiveFilter('all')}
             >
-              <Text style={[styles.filterButtonText, activeFilter === 'all' && styles.filterButtonTextActive]}>
-                All Content
-              </Text>
+              <Text style={[styles.filterButtonText, activeFilter === 'all' && styles.filterButtonTextActive]}>{t('allContent')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.filterButton, activeFilter === 'workouts' && styles.filterButtonActive]}
               onPress={() => setActiveFilter('workouts')}
             >
-              <Text style={[styles.filterButtonText, activeFilter === 'workouts' && styles.filterButtonTextActive]}>
-                Workouts
-              </Text>
+              <Text style={[styles.filterButtonText, activeFilter === 'workouts' && styles.filterButtonTextActive]}>{t('workouts')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.filterButton, activeFilter === 'programs' && styles.filterButtonActive]}
               onPress={() => setActiveFilter('programs')}
             >
-              <Text style={[styles.filterButtonText, activeFilter === 'programs' && styles.filterButtonTextActive]}>
-                Programs
-              </Text>
+              <Text style={[styles.filterButtonText, activeFilter === 'programs' && styles.filterButtonTextActive]}>{t('programs')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.filterButton, activeFilter === 'nutrition' && styles.filterButtonActive]}
               onPress={() => setActiveFilter('nutrition')}
             >
-              <Text style={[styles.filterButtonText, activeFilter === 'nutrition' && styles.filterButtonTextActive]}>
-                Nutrition
-              </Text>
+              <Text style={[styles.filterButtonText, activeFilter === 'nutrition' && styles.filterButtonTextActive]}>{t('nutrition')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>For You</Text>
+          <Text style={themedStyles.sectionTitle}>{t('forYou')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {getFilteredContent().map((item) => renderContent(item))}
           </ScrollView>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popular Categories</Text>
+          <Text style={themedStyles.sectionTitle}>{t('popularCategories')}</Text>
           <View style={styles.categoriesGrid}>
             {categories.map((category, index) => (
               <WorkoutCategoryCard
                 key={index}
                 title={category.title}
+                categoryKey={category.categoryKey}
                 count={category.count}
                 onPress={() => {
                   // Handle category selection
@@ -589,26 +648,32 @@ export default function ExploreScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Featured Trainers</Text>
+          <Text style={themedStyles.sectionTitle}>{t('featuredTrainers')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {featuredTrainers.map((trainer) => (
-              <TrainerCard key={`trainer-${trainer.id}`} {...trainer} />
+              <TrainerCard 
+                key={`trainer-${trainer.id}`}
+                image={trainer.image}
+                nameKey={trainer.nameKey}
+                specialtyKey={trainer.specialtyKey}
+                rating={trainer.rating}
+              />
             ))}
           </ScrollView>
         </View>
       </ScrollView>
 
       <TouchableOpacity 
-        style={styles.fabButton}
+        style={themedStyles.fabButton}
         onPress={() => setIsChatbotVisible(true)}
       >
         <LinearGradient
-          colors={[COLORS.primary, '#60A5FA']}
+          colors={[theme.primary, '#60A5FA']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
+          style={themedStyles.fabGradient}
         >
-          <Ionicons name="chatbubble-ellipses" size={24} color={COLORS.white} />
+          <Ionicons name="chatbubble-ellipses" size={24} color={theme.white} />
         </LinearGradient>
       </TouchableOpacity>
 
@@ -623,7 +688,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
   },
   scrollContent: {
     paddingBottom: 100,
@@ -635,7 +700,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#333',
     marginBottom: 8,
     marginLeft: 4,
   },
@@ -661,10 +726,10 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: COLORS.grey,
+    shadowColor: '#ccc',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -700,23 +765,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   durationText: {
-    color: COLORS.white,
+    color: '#fff',
     fontSize: 12,
     marginLeft: 4,
   },
   badgeText: {
-    color: COLORS.white,
+    color: '#fff',
     fontSize: 12,
     fontWeight: '500',
   },
   contentInfo: {
     padding: 12,
-  },
-  contentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 8,
   },
   creatorInfo: {
     flexDirection: 'row',
@@ -730,7 +789,7 @@ const styles = StyleSheet.create({
   },
   creatorName: {
     fontSize: 12,
-    color: COLORS.text.secondary,
+    color: '#666',
     flex: 1,
   },
   levelIndicator: {
@@ -738,12 +797,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    backgroundColor: COLORS.lightGrey,
+    backgroundColor: '#f7f7f7',
     alignSelf: 'flex-start',
   },
   levelText: {
     fontSize: 12,
-    color: COLORS.text.secondary,
+    color: '#666',
   },
   categoriesGrid: {
     flexDirection: 'row',
@@ -757,7 +816,7 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     flex: 1,
-    backgroundColor: COLORS.lightGrey,
+    backgroundColor: '#f7f7f7',
     borderRadius: 16,
     padding: 16,
     justifyContent: 'space-between',
@@ -771,7 +830,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: '#4169E1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -779,22 +838,22 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#333',
     marginBottom: 4,
   },
   categoryCount: {
     fontSize: 14,
-    color: COLORS.text.secondary,
+    color: '#666',
   },
   trainerCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 12,
     overflow: 'hidden',
-    shadowColor: COLORS.grey,
+    shadowColor: '#ccc',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -812,15 +871,9 @@ const styles = StyleSheet.create({
   trainerInfo: {
     flex: 1,
   },
-  trainerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 4,
-  },
   trainerSpecialty: {
     fontSize: 14,
-    color: COLORS.text.secondary,
+    color: '#666',
     marginBottom: 8,
   },
   ratingContainer: {
@@ -829,32 +882,32 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 14,
-    color: COLORS.text.primary,
+    color: '#333',
     marginLeft: 4,
     fontWeight: '500',
   },
   welcomeSection: {
     padding: 16,
-    backgroundColor: COLORS.lightGrey,
+    backgroundColor: '#f7f7f7',
     marginBottom: 8,
     marginTop: -40,
   },
   welcomeTitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#333',
     marginBottom: 4,
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: COLORS.text.secondary,
+    color: '#666',
   },
   recommendedCard: {
     width: width * 0.7,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
     borderRadius: 12,
     marginRight: 8,
-    shadowColor: COLORS.grey,
+    shadowColor: '#ccc',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -875,7 +928,7 @@ const styles = StyleSheet.create({
   recommendedTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#333',
     marginBottom: 8,
   },
   recommendedMetadata: {
@@ -890,46 +943,55 @@ const styles = StyleSheet.create({
   metadataText: {
     marginLeft: 4,
     fontSize: 12,
-    color: COLORS.text.secondary,
+    color: '#666',
   },
   levelBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: '#4169E1',
     borderRadius: 4,
   },
   filterContainer: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginRight: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.lightGrey,
+    marginHorizontal: 4,
+    backgroundColor: '#f7f7f7',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   filterButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#4169E1',
     borderColor: '#60A5FA',
   },
   filterButtonText: {
-    color: COLORS.text.primary,
+    color: '#333',
     fontSize: 14,
     fontWeight: '500',
   },
   filterButtonTextActive: {
-    color: COLORS.white,
+    color: '#fff',
     fontWeight: '500',
+  },
+  heroDescription: {
+    color: '#333',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 4,
+    marginBottom: 0,
+    lineHeight: 30,
+    letterSpacing: 0.1,
+    textAlign: 'left',
+    maxWidth: 260,
   },
   trainerTribeBanner: {
     width: '100%',
     aspectRatio: 1,
-    marginBottom: 0,
+    marginBottom: 16,
     backgroundColor: '#fff',
     position: 'relative',
   },
@@ -940,7 +1002,6 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
@@ -987,7 +1048,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   connectButtonText: {
-    color: COLORS.white,
+    color: '#fff',
     fontSize: 22,
     fontWeight: '600',
     textAlign: 'center',

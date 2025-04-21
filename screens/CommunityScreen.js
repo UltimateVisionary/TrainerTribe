@@ -2,12 +2,16 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { useLanguage } from '../LanguageContext';
+
+import { useMemo } from 'react';
 
 const CommunityScreen = ({ navigation }) => {
+  const { t } = useLanguage();
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Community</Text>
+        <Text style={styles.title}>{t('community')}</Text>
         <TouchableOpacity 
           style={[styles.newChatButton, { backgroundColor: COLORS.primary + '15' }]}
           onPress={() => {

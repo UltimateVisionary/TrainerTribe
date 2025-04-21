@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../LanguageContext';
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,18 +29,22 @@ const SOCIAL_PLATFORMS = [
 ];
 
 export default function EditProfileModal({ visible, onClose, onSave, initialData }) {
+  const { t, language, key: languageKey } = useLanguage();
   const [name, setName] = useState(initialData?.name || '');
   const [handle, setHandle] = useState(initialData?.handle || '');
   const [bio, setBio] = useState(initialData?.bio || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [image, setImage] = useState(initialData?.image || null);
   const [socialLinks, setSocialLinks] = useState(initialData?.socialLinks || []);
+  const [achievementsPublic, setAchievementsPublic] = useState(
+    typeof initialData?.achievementsPublic === 'boolean' ? initialData.achievementsPublic : true
+  );
 
   const handleImagePick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
-      alert('Sorry, we need camera roll permissions to change your profile picture.');
+      alert(t('cameraPermissionError') || 'Sorry, we need camera roll permissions to change your profile picture.');
       return;
     }
 
@@ -99,7 +105,7 @@ export default function EditProfileModal({ visible, onClose, onSave, initialData
   const handleSave = () => {
     // Validate required fields
     if (!name.trim() || !handle.trim()) {
-      Alert.alert('Error', 'Name and handle are required');
+      Alert.alert(t('error'), t('nameHandleRequired'));
       return;
     }
 
@@ -114,7 +120,8 @@ export default function EditProfileModal({ visible, onClose, onSave, initialData
       bio,
       email,
       image,
-      socialLinks: validLinks
+      socialLinks: validLinks,
+      achievementsPublic,
     });
     onClose();
   };
@@ -147,49 +154,63 @@ export default function EditProfileModal({ visible, onClose, onSave, initialData
                 </View>
               )}
               <View style={styles.changePhotoButton}>
-                <Text style={styles.changePhotoText}>Change Photo</Text>
+                <Text style={styles.changePhotoText}>{t('changePhoto')}</Text>
               </View>
             </TouchableOpacity>
 
-            <Text style={styles.label}>Name</Text>
+            <Text style={styles.label}>{t('name')}</Text>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Your name"
+              placeholder={t('namePlaceholder')}
               placeholderTextColor={COLORS.text.secondary}
             />
 
-            <Text style={styles.label}>Handle</Text>
+            <Text style={styles.label}>{t('handle')}</Text>
             <TextInput
               style={styles.input}
               value={handle}
               onChangeText={setHandle}
-              placeholder="@handle"
+              placeholder={t('handlePlaceholder')}
               placeholderTextColor={COLORS.text.secondary}
             />
 
-            <Text style={styles.label}>Bio</Text>
+            <Text style={styles.label}>{t('bio')}</Text>
             <TextInput
               style={[styles.input, styles.bioInput]}
               value={bio}
               onChangeText={setBio}
-              placeholder="Tell us about yourself"
+              placeholder={t('bioPlaceholder')}
               multiline
               numberOfLines={4}
               placeholderTextColor={COLORS.text.secondary}
             />
 
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t('email')}</Text>
             <TextInput
               style={styles.input}
               value={email}
               onChangeText={setEmail}
-              placeholder="your@email.com"
+              placeholder={t('emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor={COLORS.text.secondary}
             />
+
+            {/* Achievements Visibility Toggle */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name={achievementsPublic ? "eye" : "eye-off"} size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
+              <Text style={{ color: COLORS.text.secondary, marginRight: 8 }}>
+                Achievements {achievementsPublic ? "Public" : "Private"}
+              </Text>
+              <Switch
+                value={achievementsPublic}
+                onValueChange={setAchievementsPublic}
+                trackColor={{ false: COLORS.grey, true: COLORS.primaryLight }}
+                thumbColor={achievementsPublic ? COLORS.primary : '#f4f3f4'}
+              />
+            </View>
 
             <View style={styles.socialLinksSection}>
               <Text style={styles.sectionTitle}>Social Links</Text>

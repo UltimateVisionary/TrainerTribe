@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableWithoutFeedback, Pressable } from 'react-native';
 import { COLORS } from '../constants/colors';
 import MessageReactions from './MessageReactions';
+import ChatbotAvatar from './ChatbotAvatar';
 
 const MessageBubble = ({ message, isOwnMessage, onReactionSelect }) => {
   const [showReactions, setShowReactions] = useState(false);
@@ -20,8 +21,12 @@ const MessageBubble = ({ message, isOwnMessage, onReactionSelect }) => {
   };
 
   return (
-    <View style={[styles.container, isOwnMessage && styles.ownMessageContainer]}>
+    <View style={[styles.container, isOwnMessage && styles.ownMessageContainer]}> 
       <View style={styles.messageWrapper}>
+        {/* Show avatar for AI messages */}
+        {!isOwnMessage && message.isAI && (
+          <ChatbotAvatar size={28} />
+        )}
         <TouchableWithoutFeedback
           onLongPress={handleLongPress}
           delayLongPress={200}

@@ -9,6 +9,7 @@ import { View } from 'react-native';
 import { useTheme } from './ThemeContext';
 import { LanguageProvider, useLanguage } from './LanguageContext';
 import { ThemeProvider } from './ThemeContext';
+import { AuthProvider, useAuth, LoadingScreen } from './AuthContext';
 
 // Import screens
 import HomeScreen from './screens/HomeScreen';
@@ -27,9 +28,13 @@ import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
 import HelpCenterScreen from './screens/HelpCenterScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator();
 
 function MessagesStack() {
   return (
@@ -87,7 +92,23 @@ function TabNavigator() {
   );
 }
 
-function RootNavigator() {
+function AuthStackNavigator() {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="TermsOfServiceScreen" component={TermsOfServiceScreen} />
+      <AuthStack.Screen name="PrivacyPolicyScreen" component={PrivacyPolicyScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
+function AppStack() {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -118,6 +139,16 @@ function RootNavigator() {
   );
 }
 
+function RootNavigator() {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <LoadingScreen />;
+  }
+  
+  return user ? <AppStack /> : <AuthStackNavigator />;
+}
+
 function AppContent() {
   const { theme } = useTheme();
   return (
@@ -131,12 +162,14 @@ export default function App() {
   return (
     <LanguageProvider>
       <ThemeProvider>
-        <SafeAreaProvider>
-          <NavigationContainer>
-            <StatusBar style="auto" />
-            <AppContent />
-          </NavigationContainer>
-        </SafeAreaProvider>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <NavigationContainer>
+              <StatusBar style="auto" />
+              <AppContent />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>
   );

@@ -1,4 +1,4 @@
-# OnlyFitnessApp
+# Trainer Tribe
 
 ```bash
 git checkout alizjah/init

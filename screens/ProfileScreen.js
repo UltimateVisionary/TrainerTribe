@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Share,
   Linking,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,8 @@ import EditProfileModal from '../components/EditProfileModal';
 import ChatbotModal from '../components/ChatbotModal';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
+import { useAuth } from '../AuthContext';
+import { fetchUserProfile, updateUserProfile } from '../utils/userProfileUtils';
 import { COLORS } from '../constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -197,66 +200,77 @@ const SAVED_POSTS = [
 export default function ProfileScreen() {
   const { t, language, setLanguage, key: languageKey } = useLanguage();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('lifestyle');
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isChatbotVisible, setIsChatbotVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState({
-    name: t('defaultName'),
-    handle: t('defaultHandle'),
-    bio: t('defaultBio'),
-    followers: "15.2K",
-    following: "892",
-    posts: "234",
+    firstname: '',
+    lastname: '',
+    user_handle: '',
+    bio: '',
+    followers: "0",
+    following: "0",
+    posts: "0",
     image: null,
-    isVerified: true,
-    isPremiumCreator: true,
-    email: "sarah@example.com",
-    achievementsPublic: true, // default to public
-    followingPublic: true, // default to public
-    socialLinks: [
-      {
-        platform: 'Instagram',
-        username: '@sarahfit',
-        url: 'https://instagram.com/sarahfit',
-        icon: 'logo-instagram'
-      },
-      {
-        platform: 'YouTube',
-        username: 'SarahFitness',
-        url: 'https://youtube.com/sarahfitness',
-        icon: 'logo-youtube'
-      },
-      {
-        platform: 'TikTok',
-        username: '@sarahfit',
-        url: 'https://tiktok.com/@sarahfit',
-        icon: 'logo-tiktok'
-      }
-    ]
+    isVerified: false,
+    isPremiumCreator: false,
+    email: "",
+    achievementsPublic: true,
+    followingPublic: true,
+    socialLinks: []
   });
 
-  // Ensure profileData updates when language changes
+  // Fetch user profile data when component mounts or user changes
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      console.log('user id: ', user.id);
+      const profile = await fetchUserProfile(user.id, t);
+      console.log('profile firstname: ', profile.firstname);
+      if (profile) {
+        setProfileData(profile);
+      }
+      setLoading(false);
+    };
+
+    loadUserProfile();
+  }, [user, t]);
+
+  // Ensure profile data updates when language changes, but only for fields that should be translated
   React.useEffect(() => {
-    setProfileData(prev => ({
-      ...prev,
-      name: t('defaultName'),
-      handle: t('defaultHandle'),
-      bio: t('defaultBio'),
-    }));
+    if (!profileData.bio || profileData.bio === t('defaultBio', {}, languageKey !== language)) {
+      setProfileData(prev => ({
+        ...prev,
+        bio: t('defaultBio'),
+      }));
+    }
   }, [t, language, languageKey]);
 
-  const handleEditProfile = (updatedData) => {
+  const handleEditProfile = async (updatedData) => {
+    if (!user) return;
+    
+    // Update local state immediately for better UX
     setProfileData({
       ...profileData,
       ...updatedData,
+    });
+    
+    // Update profile in database
+    await updateUserProfile(user.id, {
+      ...profileData,
+      ...updatedData
     });
   };
 
   const handleShare = async () => {
     try {
       const result = await Share.share({
-        message: t('shareProfileMessage', {name: profileData.name, bio: profileData.bio, handle: profileData.handle}),
-        title: t('shareProfileTitle', {name: profileData.name}),
+        message: t('shareProfileMessage', {name: profileData.firstname, bio: profileData.bio, handle: profileData.user_handle}),
+        title: t('shareProfileTitle', {name: profileData.firstname}),
       });
     } catch (error) {
       alert(t('errorSharingProfile')); // Translate error message
@@ -307,8 +321,8 @@ export default function ProfileScreen() {
 
   const navigation = useNavigation();
 
-  // MOCK: Replace with actual logic to determine if the current user is the profile owner
-  const isOwnProfile = true; // Set to true for now; replace with real auth/user check
+  // Use actual auth logic to determine if the current user is the profile owner
+  const isOwnProfile = true; // Currently we only show the user's own profile
 
   // Handler for toggling achievement visibility
   const handleToggleAchievementsVisibility = () => {
@@ -328,187 +342,200 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.white }]} key={languageKey}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContainer, { backgroundColor: COLORS.white }]}
-        bounces={true}
-        overScrollMode="always"
-      >
-
-        <View style={[styles.header, { borderBottomColor: theme.border }]} > 
-          <View style={{ width: 24 }} />
-          <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={24} color={theme.primary} />
-          </TouchableOpacity>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.text }]}>{t('loadingProfile')}</Text>
         </View>
-
-        <View style={[styles.profileSection, { backgroundColor: theme.card }]} > 
-          <View style={styles.profileHeader}>
-            {profileData.image ? (
-              <Image source={profileData.image} style={[styles.profileImage, { backgroundColor: theme.card, borderColor: theme.primary }]} />
-            ) : (
-              <View style={[styles.defaultProfileImage, { backgroundColor: theme.card }]}>
-                <Text style={[styles.sadFace, { color: theme.textSecondary }]}>:(</Text>
-              </View>
-            )}
-            <View style={styles.profileStats}>
-              <View style={styles.statColumn}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{profileData.posts}</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('posts')}</Text>
-              </View>
-              <View style={styles.statColumn}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{profileData.followers}</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('followers')}</Text>
-              </View>
-              <View style={styles.statColumn}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{profileData.following}</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('following')}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.profileInfo}>
-            <View style={styles.nameContainer}>
-              <Text style={[styles.name, { color: theme.text }]}>{profileData.name}</Text>
-              {profileData.isVerified && (
-                <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
-              )}
-              {profileData.isPremiumCreator && (
-                <View style={[styles.premiumCreatorBadge, { backgroundColor: theme.primaryLight }]} > 
-                  <Ionicons name="star" size={12} color="#FFD700" />
-                </View>
-              )}
-            </View>
-            <Text style={[styles.handle, { color: theme.textSecondary }]}>{profileData.handle}</Text>
-            <Text style={[styles.bio, { color: theme.text }]}>{profileData.bio}</Text>
-            {profileData.socialLinks && profileData.socialLinks.length > 0 && (
-              <View style={styles.socialLinksContainer}>
-                {profileData.socialLinks.map((link, index) => (
-                  <TouchableOpacity key={link.platform} style={[styles.socialLink, { backgroundColor: theme.card }]} onPress={() => Linking.openURL(link.url)}>
-                    <Ionicons name={link.icon} size={20} color={theme.textSecondary} />
-                    <Text style={[styles.socialUsername, { color: theme.text }]}>{link.username}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-              onPress={() => setIsEditModalVisible(true)}
-            >
-              <Text style={[styles.primaryButtonText, { color: theme.white }]}>{t('editProfile')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.secondaryButton, { backgroundColor: theme.card }]}
-              onPress={handleShare}
-            >
-              <Ionicons name="share-social" size={20} color={theme.text} style={styles.buttonIcon} />
-              <Text style={[styles.secondaryButtonText, { color: theme.text }]}>{t('shareProfile')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Only show creator insights if this is the user's own profile */}
-        {isOwnProfile && (
-          <View style={[styles.creatorInsights, { backgroundColor: theme.card }]}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('creatorInsights')}</Text>
-              <TouchableOpacity>
-                <Text style={[styles.seeMoreText, { color: theme.primary }]}>{t('seeDetails')}</Text>
+      ) : (
+        <>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.scrollContainer, { backgroundColor: COLORS.white }]}
+            bounces={true}
+            overScrollMode="always"
+          >
+            <View style={[styles.header, { borderBottomColor: theme.border }]} > 
+              <View style={{ width: 24 }} />
+              <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={() => navigation.navigate('Settings')}>
+                <Ionicons name="settings-outline" size={24} color={theme.primary} />
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {statistics.map((stat, idx) => (
-                <StatisticCard
-                  key={idx}
-                  title={stat.title}
-                  value={stat.value}
-                  change={stat.change}
-                  isPositive={stat.isPositive}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        )}
 
+            <View style={[styles.profileSection, { backgroundColor: theme.card }]} > 
+              <View style={styles.profileHeader}>
+                {profileData.image ? (
+                  <Image 
+                    source={
+                      typeof profileData.image === 'string' 
+                        ? { uri: profileData.image } 
+                        : profileData.image
+                    } 
+                    style={[styles.profileImage, { backgroundColor: theme.card, borderColor: theme.primary }]} 
+                  />
+                ) : (
+                  <View style={[styles.defaultProfileImage, { backgroundColor: theme.card }]}>
+                    <Text style={[styles.sadFace, { color: theme.textSecondary }]}>:(</Text>
+                  </View>
+                )}
+                <View style={styles.profileStats}>
+                  <View style={styles.statColumn}>
+                    <Text style={[styles.statValue, { color: theme.text }]}>{profileData.posts}</Text>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('posts')}</Text>
+                  </View>
+                  <View style={styles.statColumn}>
+                    <Text style={[styles.statValue, { color: theme.text }]}>{profileData.followers}</Text>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('followers')}</Text>
+                  </View>
+                  <View style={styles.statColumn}>
+                    <Text style={[styles.statValue, { color: theme.text }]}>{profileData.following}</Text>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('following')}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.profileInfo}>
+                <View style={styles.nameContainer}>
+                  <Text style={[styles.name, { color: theme.text }]}>{`${profileData.firstname} ${profileData.lastname}`}</Text>
+                  {profileData.isVerified && (
+                    <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                  )}
+                  {profileData.isPremiumCreator && (
+                    <View style={[styles.premiumCreatorBadge, { backgroundColor: theme.primaryLight }]} > 
+                      <Ionicons name="star" size={12} color="#FFD700" />
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.handle, { color: theme.textSecondary }]}>@{profileData.user_handle}</Text>
+                <Text style={[styles.bio, { color: theme.text }]}>{profileData.bio}</Text>
+                {profileData.socialLinks && profileData.socialLinks.length > 0 && (
+                  <View style={styles.socialLinksContainer}>
+                    {profileData.socialLinks.map((link, index) => (
+                      <TouchableOpacity key={link.platform} style={[styles.socialLink, { backgroundColor: theme.card }]} onPress={() => Linking.openURL(link.url)}>
+                        <Ionicons name={link.icon} size={20} color={theme.textSecondary} />
+                        <Text style={[styles.socialUsername, { color: theme.text }]}>{link.username}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                  style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+                  onPress={() => setIsEditModalVisible(true)}
+                >
+                  <Text style={[styles.primaryButtonText, { color: theme.white }]}>{t('editProfile')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.secondaryButton, { backgroundColor: theme.card }]}
+                  onPress={handleShare}
+                >
+                  <Ionicons name="share-social" size={20} color={theme.text} style={styles.buttonIcon} />
+                  <Text style={[styles.secondaryButtonText, { color: theme.text }]}>{t('shareProfile')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
+            {/* Only show creator insights if this is the user's own profile */}
+            {isOwnProfile && (
+              <View style={[styles.creatorInsights, { backgroundColor: theme.card }]}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('creatorInsights')}</Text>
+                  <TouchableOpacity>
+                    <Text style={[styles.seeMoreText, { color: theme.primary }]}>{t('seeDetails')}</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {statistics.map((stat, idx) => (
+                    <StatisticCard
+                      key={idx}
+                      title={stat.title}
+                      value={stat.value}
+                      change={stat.change}
+                      isPositive={stat.isPositive}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-        {/* Only show achievements if public or if this is the user's own profile */}
-        {(profileData.achievementsPublic || isOwnProfile) && (
-          <View style={[styles.achievementsSection, { backgroundColor: theme.card }]}> 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('achievements')}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {achievements.map((achievement, index) => (
-                <AchievementBadge key={index} {...achievement} />
-              ))}
-            </ScrollView>
-          </View>
-        )}
+            {/* Only show achievements if public or if this is the user's own profile */}
+            {(profileData.achievementsPublic || isOwnProfile) && (
+              <View style={[styles.achievementsSection, { backgroundColor: theme.card }]}> 
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('achievements')}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {achievements.map((achievement, index) => (
+                    <AchievementBadge key={index} {...achievement} />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-        <View style={[styles.contentSection, { backgroundColor: theme.background }]}>
-          <View style={styles.contentTabs}>
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'lifestyle' && styles.activeTab]}
-              onPress={() => setActiveTab('lifestyle')}
+            <View style={[styles.contentSection, { backgroundColor: theme.background }]}>
+              <View style={styles.contentTabs}>
+                <TouchableOpacity 
+                  style={[styles.tab, activeTab === 'lifestyle' && styles.activeTab]}
+                  onPress={() => setActiveTab('lifestyle')}
+                >
+                  <Ionicons 
+                    name="grid-outline" 
+                    size={24} 
+                    color={activeTab === 'lifestyle' ? theme.primary : theme.textSecondary} 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.tab, activeTab === 'trainer' && styles.activeTab]}
+                  onPress={() => setActiveTab('trainer')}
+                >
+                  <Ionicons 
+                    name="fitness-outline" 
+                    size={24} 
+                    color={activeTab === 'trainer' ? theme.primary : theme.textSecondary} 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
+                  onPress={() => setActiveTab('saved')}
+                >
+                  <Ionicons 
+                    name="bookmark-outline" 
+                    size={24} 
+                    color={activeTab === 'saved' ? theme.primary : theme.textSecondary} 
+                  />
+                </TouchableOpacity>
+              </View>
+              {activeTab === 'lifestyle' && <ContentTab posts={lifestylePosts} />}
+              {activeTab === 'trainer' && <ContentTab posts={trainerPosts} />}
+              {activeTab === 'saved' && <ContentTab posts={savedPosts} />}
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity 
+            style={styles.fabButton}
+            onPress={() => setIsChatbotVisible(true)}
+          >
+            <LinearGradient
+              colors={[theme.primary, '#60A5FA']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fabGradient}
             >
-              <Ionicons 
-                name="grid-outline" 
-                size={24} 
-                color={activeTab === 'lifestyle' ? theme.primary : theme.textSecondary} 
-              />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'trainer' && styles.activeTab]}
-              onPress={() => setActiveTab('trainer')}
-            >
-              <Ionicons 
-                name="fitness-outline" 
-                size={24} 
-                color={activeTab === 'trainer' ? theme.primary : theme.textSecondary} 
-              />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
-              onPress={() => setActiveTab('saved')}
-            >
-              <Ionicons 
-                name="bookmark-outline" 
-                size={24} 
-                color={activeTab === 'saved' ? theme.primary : theme.textSecondary} 
-              />
-            </TouchableOpacity>
-          </View>
-          {activeTab === 'lifestyle' && <ContentTab posts={lifestylePosts} />}
-          {activeTab === 'trainer' && <ContentTab posts={trainerPosts} />}
-          {activeTab === 'saved' && <ContentTab posts={savedPosts} />}
-        </View>
-      </ScrollView>
+              <Ionicons name="chatbubble-ellipses" size={24} color={theme.white} />
+            </LinearGradient>
+          </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={styles.fabButton}
-        onPress={() => setIsChatbotVisible(true)}
-      >
-        <LinearGradient
-          colors={[theme.primary, '#60A5FA']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
-        >
-          <Ionicons name="chatbubble-ellipses" size={24} color={theme.white} />
-        </LinearGradient>
-      </TouchableOpacity>
+          <EditProfileModal
+            visible={isEditModalVisible}
+            onClose={() => setIsEditModalVisible(false)}
+            onSave={handleEditProfile}
+            initialData={profileData}
+          />
 
-      <EditProfileModal
-        visible={isEditModalVisible}
-        onClose={() => setIsEditModalVisible(false)}
-        onSave={handleEditProfile}
-        initialData={profileData}
-      />
-
-      <ChatbotModal
-        visible={isChatbotVisible}
-        onClose={() => setIsChatbotVisible(false)}
-      />
+          <ChatbotModal
+            visible={isChatbotVisible}
+            onClose={() => setIsChatbotVisible(false)}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -893,5 +920,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

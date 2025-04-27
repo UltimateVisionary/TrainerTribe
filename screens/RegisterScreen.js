@@ -16,9 +16,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../AuthContext';
 import { useTheme } from '../ThemeContext';
 import { useLanguage } from '../LanguageContext';
+import { generateUniqueHandle } from '../utils/userProfileUtils';
 
 const RegisterScreen = ({ navigation }) => {
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,7 +33,7 @@ const RegisterScreen = ({ navigation }) => {
   const { t } = useLanguage();
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -43,7 +45,11 @@ const RegisterScreen = ({ navigation }) => {
 
     setIsSubmitting(true);
     try {
-      const { user, error } = await signUp(email, password, fullName);
+      // Generate a unique handle based on first name and last name initial
+      const user_handle = await generateUniqueHandle(firstName, lastName);
+     
+      // Register the user with Supabase
+      const { user, error } = await signUp(email, password, firstName, lastName, user_handle);
       
       if (error) {
         Alert.alert('Error', error);
@@ -84,10 +90,22 @@ const RegisterScreen = ({ navigation }) => {
               <Ionicons name="person-outline" size={20} color={theme.grey} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
-                placeholder="Full Name"
+                placeholder="First Name"
                 placeholderTextColor={theme.grey}
-                value={fullName}
-                onChangeText={setFullName}
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
+              <Ionicons name="person-outline" size={20} color={theme.grey} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: theme.text }]}
+                placeholder="Last Name"
+                placeholderTextColor={theme.grey}
+                value={lastName}
+                onChangeText={setLastName}
                 autoCapitalize="words"
               />
             </View>

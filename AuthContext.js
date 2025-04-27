@@ -1,6 +1,14 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import supabase from './utils/supabaseClient';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, AppState, View } from 'react-native';
+
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh();
+  } else {
+    supabase.auth.stopAutoRefresh();
+  }
+});
 
 const AuthContext = createContext({});
 
@@ -48,9 +56,11 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Sign up with email and password
-  const signUp = async (email, password, fullName) => {
+  const signUp = async (email, password, firstName, lastName, handle) => {
     try {
       setLoading(true);
+
+      console.log('values: ', email, password, firstName, lastName, handle);
       
       // Register user in Supabase
       const { data: { user }, error } = await supabase.auth.signUp({
@@ -58,12 +68,30 @@ export const AuthProvider = ({ children }) => {
         password,
         options: {
           data: {
-            full_name: fullName,
+            //full_name: `${firstName} ${lastName}`,
+            user_handle: handle,
+            firstname: firstName,
+            lastname: lastName,
           },
         },
       });
       
       if (error) throw error;
+      
+      // Create initial profile record
+      // if (user) {
+      //   try {
+      //     await supabase.from('profiles').upsert({
+      //       id: user.id,
+      //       firstname: firstName,
+      //       lastname: lastName,
+      //       user_handle: handle,
+      //     });
+      //   } catch (profileError) {
+      //     console.error('Error creating initial profile:', profileError);
+      //   }
+      // }
+      
       return { user, error: null };
     } catch (error) {
       return { user: null, error: error.message };

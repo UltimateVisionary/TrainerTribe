@@ -9,6 +9,9 @@ import { View } from 'react-native';
 import { useTheme } from './ThemeContext';
 import { LanguageProvider, useLanguage } from './LanguageContext';
 import { ThemeProvider } from './ThemeContext';
+import { AuthProvider, useAuth, LoadingScreen } from './AuthContext';
+import { HealthProvider } from './components/HealthContext';
+import Toast from 'react-native-toast-message';
 
 // Import screens
 import HomeScreen from './screens/HomeScreen';
@@ -24,12 +27,19 @@ import CommunityScreen from './screens/CommunityScreen';
 import PricingScreen from './screens/PricingScreen';
 import SubscriptionScreen from './screens/SubscriptionScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
+import StretchLibraryScreen from './screens/StretchLibraryScreen';
+import StoreScreen from './screens/StoreScreen';
+import CommentScreen from './screens/CommentScreen';
 import TermsOfServiceScreen from './screens/TermsOfServiceScreen';
 import HelpCenterScreen from './screens/HelpCenterScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator();
 
 function MessagesStack() {
   return (
@@ -87,7 +97,23 @@ function TabNavigator() {
   );
 }
 
-function RootNavigator() {
+function AuthStackNavigator() {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="TermsOfServiceScreen" component={TermsOfServiceScreen} />
+      <AuthStack.Screen name="PrivacyPolicyScreen" component={PrivacyPolicyScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
+function AppStack() {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -114,8 +140,21 @@ function RootNavigator() {
       <Stack.Screen name="TermsOfServiceScreen" component={TermsOfServiceScreen} />
       <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="StretchLibraryScreen" component={StretchLibraryScreen} />
+      <Stack.Screen name="CommentScreen" component={CommentScreen} />
+      <Stack.Screen name="Store" component={StoreScreen} />
     </Stack.Navigator>
   );
+}
+
+function RootNavigator() {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <LoadingScreen />;
+  }
+  
+  return user ? <AppStack /> : <AuthStackNavigator />;
 }
 
 function AppContent() {
@@ -131,12 +170,17 @@ export default function App() {
   return (
     <LanguageProvider>
       <ThemeProvider>
-        <SafeAreaProvider>
-          <NavigationContainer>
-            <StatusBar style="auto" />
-            <AppContent />
-          </NavigationContainer>
-        </SafeAreaProvider>
+        <AuthProvider>
+          <HealthProvider>
+            <SafeAreaProvider>
+              <NavigationContainer>
+                <StatusBar style="auto" />
+                <AppContent />
+                <Toast />
+              </NavigationContainer>
+            </SafeAreaProvider>
+          </HealthProvider>
+        </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>
   );

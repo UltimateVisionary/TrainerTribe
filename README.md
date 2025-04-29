@@ -1,12 +1,27 @@
 # OnlyFitnessApp
 
-A starter Expo project for an OnlyFans‑style fitness subscription app.
-
-## Installation
-
 ```bash
-npm install
-expo start
+git checkout alizjah/init
+git pull
+git pull origin main
 ```
 
-Replace placeholder assets in `/assets` and implement your own screens based on the provided templates.# TrainerTribe
+Any problems with the above let me know
+
+
+in your file browser go to the project directory, create a new file called ".env" then open that file and paste in the below environment variables
+
+ # Supabase Configuration
+SUPABASE_URL=https://bsvybpdqcggdfvffcjmf.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzdnlicGRxY2dnZGZ2ZmZjam1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzNzgzNzEsImV4cCI6MjA2MDk1NDM3MX0.jl4cgoKZ8ySkAhQWhz3Rpctw8zV7qK84Se3JF3WBrHQ%    
+
+
+make sure you run the following command in your terminal 
+```bash
+npm install
+```
+ before you run
+ 
+```bash 
+npx expo start
+```

@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
-import { fetchOpenAIResponse } from '../utils/openai';
+import { fetchDeepSeekResponse } from '../utils/deepseek';
+import { DEEPSEEK_API_KEY } from '@env';
 import { useLanguage } from '../LanguageContext';
 
 const TypingIndicator = () => {
@@ -76,10 +77,15 @@ const TypingIndicator = () => {
   );
 };
 
-const Message = ({ text, isUser }) => {
+// Message component now supports disabling animation for history messages
+const Message = ({ text, isUser, animate }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isUser ? 50 : -50)).current;
-  const [displayedText, setDisplayedText] = React.useState(isUser ? text : '');
+  // Improved: Only add blank line before numbered list items at line start, not decimals like '1.5 cups'
+  let formattedText = text.replace(/(^|\n)(\d+)\.(?=\s)/g, '$1\n$2.').replace(/^\n+/, '');
+  // Add extra spacing between paragraphs (convert single \n to double \n except after numbered lists)
+  formattedText = formattedText.replace(/([^\n])\n([^\n\d])/g, '$1\n\n$2');
+  const [displayedText, setDisplayedText] = React.useState(isUser ? formattedText : (animate ? '' : formattedText));
 
   React.useEffect(() => {
     Animated.parallel([
@@ -96,21 +102,21 @@ const Message = ({ text, isUser }) => {
       }),
     ]).start();
 
-    // Typewriter effect for bot messages
-    if (!isUser) {
+    // Typewriter effect for bot messages (only if animate is true)
+    if (!isUser && animate) {
       let wordIndex = 0;
-      const words = text.split(' ');
+      const words = formattedText.split(' ');
       setDisplayedText('');
       const interval = setInterval(() => {
         wordIndex++;
         setDisplayedText(words.slice(0, wordIndex).join(' '));
         if (wordIndex >= words.length) clearInterval(interval);
-      }, 60); // 60ms per word
+      }, 80); // Slower: 80ms per word
       return () => clearInterval(interval);
     } else {
-      setDisplayedText(text);
+      setDisplayedText(formattedText);
     }
-  }, [text, isUser]);
+  }, [formattedText, isUser, animate]);
 
   return (
     <Animated.View
@@ -168,18 +174,20 @@ export default function ChatbotModal({ visible, onClose, apiKey = null }) {
     return () => {
       if (pulse) pulse.stop();
     };
-  }, [visible]);
-  const [messages, setMessages] = useState([
-    {
-      text: language === 'en' ? "Hi! I'm your personal fitness AI assistant. I can help you with workouts, nutrition, form correction, and more. What would you like to know?" : t('chatbotWelcome'),
-      isUser: false,
-    },
-  ]);
+   }, [visible]);
+   // Only initialize the welcome message once, persist chat across modal opens
+   const [messages, setMessages] = useState(() => [
+     {
+       text: language === 'en' ? "Hey! I'm your personal fitness assistant powered by Ai. I can help with workout ideas, meal plans, form correction and more! What would you like to know?" : t('chatbotWelcome'),
+       isUser: false,
+     },
+   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollViewRef = useRef();
 
   const handleSend = async () => {
+  console.log('DEEPSEEK_API_KEY:', DEEPSEEK_API_KEY);
     if (!input.trim()) return;
 
     const userMessage = { text: input.trim(), isUser: true };
@@ -224,24 +232,14 @@ export default function ChatbotModal({ visible, onClose, apiKey = null }) {
     const lastBotMessageObj = [...messages].reverse().find(m => !m.isUser);
     const lastBotMessage = lastBotMessageObj ? lastBotMessageObj.text : '';
 
-    if (apiKey) {
-      // Use OpenAI API if apiKey is provided
-      fetchOpenAIResponse({ prompt: input, apiKey })
-        .then((reply) => {
-          setIsTyping(false);
-          setMessages(prev => [...prev, { text: reply, isUser: false }]);
-        })
-        .catch((err) => {
-          setIsTyping(false);
-          setMessages(prev => [...prev, { text: 'Sorry, I could not connect to OpenAI. ' + err.message, isUser: false }]);
-        });
-    } else {
-      // Fallback: use local adaptive logic
-      setTimeout(() => {
-        const botResponse = getAdaptiveBotResponse({ userInput: input, lastBotMessage });
-        setIsTyping(false);
-        setMessages(prev => [...prev, botResponse]);
-      }, 2000);
+    // Always use DeepSeek for AI responses
+    try {
+      const reply = await fetchDeepSeekResponse({ prompt: input, apiKey: DEEPSEEK_API_KEY });
+      setIsTyping(false);
+      setMessages(prev => [...prev, { text: reply, isUser: false, animate: true }]);
+    } catch (err) {
+      setIsTyping(false);
+      setMessages(prev => [...prev, { text: 'Sorry, I could not connect to DeepSeek. ' + err.message, isUser: false, animate: true }]);
     }
   };
 
@@ -307,8 +305,13 @@ export default function ChatbotModal({ visible, onClose, apiKey = null }) {
             onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
             keyboardShouldPersistTaps="handled"
           >
-            {messages.map((message, index) => (
-              <Message key={index} {...message} />
+            {messages.map((msg, idx) => (
+              <Message
+                key={idx}
+                text={msg.text}
+                isUser={msg.isUser}
+                animate={!!msg.animate}
+              />
             ))}
             {isTyping && <TypingIndicator />}
           </ScrollView>
@@ -453,7 +456,8 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 26, // More line height for readability
+    marginBottom: 4, // Add space between paragraphs
   },
   userMessageText: {
     color: COLORS.white,
@@ -495,14 +499,16 @@ const styles = StyleSheet.create({
   },
   suggestedContainer: {
     padding: 16,
-    paddingTop: 0,
+    paddingTop: 12, // Add more top padding to move buttons down
+    paddingBottom: 16, // Add bottom padding for even spacing
   },
   suggestionChip: {
     backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10, // Slightly taller for more touch area
     borderRadius: 16,
     marginRight: 8,
+    marginBottom: 4, // Add bottom margin for vertical spacing
   },
   suggestionText: {
     color: COLORS.primary,

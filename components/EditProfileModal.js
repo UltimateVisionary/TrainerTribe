@@ -40,6 +40,19 @@ export default function EditProfileModal({ visible, onClose, onSave, initialData
     typeof initialData?.achievementsPublic === 'boolean' ? initialData.achievementsPublic : true
   );
 
+  // Sync modal state with latest initialData (profileData) whenever it changes
+  React.useEffect(() => {
+    setName(initialData?.name || '');
+    setHandle(initialData?.handle || '');
+    setBio(initialData?.bio || '');
+    setEmail(initialData?.email || '');
+    setImage(initialData?.image || null);
+    setSocialLinks(initialData?.socialLinks || []);
+    setAchievementsPublic(
+      typeof initialData?.achievementsPublic === 'boolean' ? initialData.achievementsPublic : true
+    );
+  }, [initialData]);
+
   const handleImagePick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     

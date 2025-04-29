@@ -126,7 +126,7 @@ const SaveButton = ({ theme }) => {
   );
 };
 
-const PostCard = ({ creator, image, title, description, likes, comments, duration, level, theme }) => (
+const PostCard = ({ creator, image, title, description, likes, comments, duration, level, theme, navigation }) => (
   <View style={[styles.postCard, { backgroundColor: theme.card }]}>
     <View style={[styles.postHeader, { backgroundColor: theme.background }]}>
       <Image source={creator.image} style={styles.creatorAvatar} />
@@ -153,8 +153,10 @@ const PostCard = ({ creator, image, title, description, likes, comments, duratio
       <View style={styles.postStats}>
         <LikeButton initialLikes={likes} theme={theme} />
         <View style={[styles.statItem, { backgroundColor: theme.background }]}>
-          <Ionicons name="chatbubble-outline" size={20} color={theme.grey} />
-          <Text style={[styles.statText, { color: theme.textSecondary }]}>{comments}</Text>
+          <TouchableOpacity onPress={() => navigation && navigation.navigate('CommentScreen', { postId: 'demo-post-id' })} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="chatbubble-outline" size={20} color={theme.grey} />
+            <Text style={[styles.statText, { color: theme.textSecondary, marginLeft: 4 }]}>{comments}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -358,7 +360,7 @@ export default function HomeScreen() {
     if (item.type === 'nutrition') {
       return <MealPlanCard key={item.title} {...item} theme={theme} />;
     }
-    return <PostCard key={item.title} {...item} theme={theme} />;
+    return <PostCard key={item.title} {...item} theme={theme} navigation={navigation} />;
   };
 
   return (
@@ -443,7 +445,12 @@ export default function HomeScreen() {
 
       <TouchableOpacity 
         style={styles.fabButton}
-        onPress={() => setIsChatbotVisible(true)}
+        onPress={async () => {
+          // Play sound effect before showing chatbot
+          const { playChatbotSound } = await import('../utils/sound');
+          playChatbotSound();
+          setIsChatbotVisible(true);
+        }}
       >
         <LinearGradient
           colors={[theme.primary, '#60A5FA']}

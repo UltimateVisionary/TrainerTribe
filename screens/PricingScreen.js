@@ -123,8 +123,10 @@ export default function PricingScreen() {
               )}
               <Text style={[styles.planName, { color: theme.text }]}>{item.name}</Text>
               <View style={styles.priceRow}>
-                <Text style={styles.planPrice}>{item.price}</Text>
-                <Text style={styles.planPer}> {item.per}</Text>
+                <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={[styles.planPrice, { color: theme.text }]}>{item.price}</Text>
+                  <Text style={styles.planPer}>{item.per}</Text>
+                </View>
               </View>
               <Text style={[styles.planDesc, { color: theme.textSecondary }]}>{item.description}</Text>
               <View style={styles.featureList}>

@@ -13,10 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, Rect, Path } from 'react-native-svg';
 import { useLanguage } from '../LanguageContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../ThemeContext';
 import SocialLeaderboard from '../components/SocialLeaderboard';
+import HealthTracker from '../components/HealthTracker';
+import WeeklyStepsChart from '../components/WeeklyStepsChart';
+import StretchLibrary from '../components/StretchLibrary';
 import WorkoutCategoryCard from '../components/WorkoutCategoryCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import ChatbotModal from '../components/ChatbotModal';
@@ -661,11 +665,64 @@ export default function ExploreScreen() {
             ))}
           </ScrollView>
         </View>
+
+        {/* Health Tracker Section */}
+        <HealthTracker />
+      <WeeklyStepsChart />
+
+        <TouchableOpacity
+          style={{
+            marginHorizontal: 16,
+            marginTop: 18,
+            marginBottom: 8,
+            borderRadius: 16,
+            backgroundColor: theme.primary,
+            shadowColor: theme.primary,
+            shadowOpacity: 0.12,
+            shadowRadius: 8,
+            elevation: 3,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 18,
+            paddingHorizontal: 20,
+          }}
+          onPress={() => navigation.navigate('StretchLibraryScreen')}
+        >
+          {/* Stick figure stretching icon using SVG */}
+          <Svg width={48} height={48} viewBox="0 0 32 32" style={{ marginRight: 20 }}>
+            {/* Head */}
+            <Circle cx="16" cy="7" r="3" fill={theme.white} />
+            {/* Body */}
+            <Rect x="15" y="10" width="2" height="8" fill={theme.white} rx="1" />
+            {/* Left arm stretched upward */}
+            <Path d="M16 12 L10 5" stroke={theme.white} strokeWidth="2" strokeLinecap="round" />
+            {/* Right arm down */}
+            <Path d="M16 12 L22 16" stroke={theme.white} strokeWidth="2" strokeLinecap="round" />
+            {/* Left leg */}
+            <Path d="M16 18 L12 28" stroke={theme.white} strokeWidth="2" strokeLinecap="round" />
+            {/* Right leg */}
+            <Path d="M16 18 L20 28" stroke={theme.white} strokeWidth="2" strokeLinecap="round" />
+          </Svg>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.white, fontSize: 18, fontWeight: '700', marginBottom: 2 }}>
+              Stretch Library
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '400' }}>
+              Improve flexibility, mobility, and recovery with guided stretches.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.white} />
+        </TouchableOpacity>
+
       </ScrollView>
 
       <TouchableOpacity 
         style={themedStyles.fabButton}
-        onPress={() => setIsChatbotVisible(true)}
+        onPress={async () => {
+          const { playChatbotSound } = await import('../utils/sound');
+          playChatbotSound();
+          setIsChatbotVisible(true);
+        }}
       >
         <LinearGradient
           colors={[theme.primary, '#60A5FA']}

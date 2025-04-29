@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import ChatbotModal from '../components/ChatbotModal';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { COLORS } from '../constants/colors';
+import { useAuth } from '../AuthContext';
+import supabase from '../utils/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 
@@ -195,6 +197,9 @@ const SAVED_POSTS = [
 ];
 
 export default function ProfileScreen() {
+  const { user, loading: authLoading } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { t, language, setLanguage, key: languageKey } = useLanguage();
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('lifestyle');
@@ -204,52 +209,148 @@ export default function ProfileScreen() {
     name: t('defaultName'),
     handle: t('defaultHandle'),
     bio: t('defaultBio'),
-    followers: "15.2K",
-    following: "892",
-    posts: "234",
+    followers: '',
+    following: '',
+    posts: '',
     image: null,
-    isVerified: true,
-    isPremiumCreator: true,
-    email: "sarah@example.com",
-    achievementsPublic: true, // default to public
-    followingPublic: true, // default to public
-    socialLinks: [
-      {
-        platform: 'Instagram',
-        username: '@sarahfit',
-        url: 'https://instagram.com/sarahfit',
-        icon: 'logo-instagram'
-      },
-      {
-        platform: 'YouTube',
-        username: 'SarahFitness',
-        url: 'https://youtube.com/sarahfitness',
-        icon: 'logo-youtube'
-      },
-      {
-        platform: 'TikTok',
-        username: '@sarahfit',
-        url: 'https://tiktok.com/@sarahfit',
-        icon: 'logo-tiktok'
-      }
-    ]
+    isVerified: false,
+    isPremiumCreator: false,
+    email: '',
+    tokens: 0,
+    achievementsPublic: true,
+    followingPublic: true,
+    socialLinks: [],
   });
 
+  // Fetch user profile from Supabase
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true); // Always start loading
+      setError(null);
+      console.log("fetchProfile called. user:", user);
+      let didTimeout = false;
+      // Timeout fallback in case network hangs
+      const timeout = setTimeout(() => {
+        didTimeout = true;
+        setLoading(false);
+        setError('Profile request timed out.');
+      }, 10000); // 10 seconds
+
+      try {
+        if (!user) {
+          setLoading(false);
+          clearTimeout(timeout);
+          return;
+        }
+        setLoading(true);
+        setError(null);
+        // Adjust table and column names as per your Supabase schema
+        console.log("About to fetch profile from Supabase for user id:", user?.id);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (error) {
+          console.error("Supabase profile fetch error:", error, "for user id:", user?.id);
+          throw error;
+        }
+        if (data) {
+          console.log("Fetched profile data from Supabase:", data);
+          setProfileData(prev => ({
+            ...prev,
+            name: data.full_name || prev.name,
+            handle: data.handle || prev.handle,
+            bio: data.bio || prev.bio,
+            followers: data.followers ?? prev.followers,
+            following: data.following ?? prev.following,
+            posts: data.posts ?? prev.posts,
+            image: data.avatar_url || prev.image,
+            isVerified: data.is_verified ?? prev.isVerified,
+            isPremiumCreator: data.is_premium_creator ?? prev.isPremiumCreator,
+            email: data.email || user.email || prev.email,
+            tokens: data.tokens ?? prev.tokens,
+            achievementsPublic: data.achievements_public ?? prev.achievementsPublic,
+            followingPublic: data.following_public ?? prev.followingPublic,
+            socialLinks: data.social_links || prev.socialLinks,
+          }));
+        }
+      } catch (err) {
+        setError('Failed to load profile.');
+        setLoading(false);
+        console.error('Profile fetch failed:', err);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    // Only run on mount or user change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // Ensure profileData updates when language changes
+  // Only update default fields if they are still at the default value
   React.useEffect(() => {
     setProfileData(prev => ({
       ...prev,
-      name: t('defaultName'),
-      handle: t('defaultHandle'),
-      bio: t('defaultBio'),
+      name: prev.name === t('defaultName') ? t('defaultName') : prev.name,
+      handle: prev.handle === t('defaultHandle') ? t('defaultHandle') : prev.handle,
+      bio: prev.bio === t('defaultBio') ? t('defaultBio') : prev.bio,
     }));
   }, [t, language, languageKey]);
 
-  const handleEditProfile = (updatedData) => {
-    setProfileData({
-      ...profileData,
-      ...updatedData,
-    });
+  const handleEditProfile = async (updatedData) => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      setError(null);
+      // Prepare update payload (adjust keys if your schema differs)
+      const payload = {
+        full_name: updatedData.name,
+        handle: updatedData.handle,
+        bio: updatedData.bio,
+        email: updatedData.email,
+        avatar_url: updatedData.image,
+        achievements_public: updatedData.achievementsPublic,
+        social_links: updatedData.socialLinks,
+      };
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', user.id);
+      if (updateError) throw updateError;
+      // Immediately re-fetch the profile from Supabase to get the latest data
+      const { data, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (fetchError) throw fetchError;
+      if (data) {
+        setProfileData(prev => ({
+          ...prev,
+          name: data.full_name || prev.name,
+          handle: data.handle || prev.handle,
+          bio: data.bio || prev.bio,
+          followers: data.followers ?? prev.followers,
+          following: data.following ?? prev.following,
+          posts: data.posts ?? prev.posts,
+          image: data.avatar_url || prev.image,
+          isVerified: data.is_verified ?? prev.isVerified,
+          isPremiumCreator: data.is_premium_creator ?? prev.isPremiumCreator,
+          email: data.email || user.email || prev.email,
+          tokens: data.tokens ?? prev.tokens,
+          achievementsPublic: data.achievements_public ?? prev.achievementsPublic,
+          followingPublic: data.following_public ?? prev.followingPublic,
+          socialLinks: data.social_links || prev.socialLinks,
+        }));
+      }
+      Alert.alert('Success', 'Profile updated successfully!');
+    } catch (err) {
+      setError('Failed to update profile.');
+      Alert.alert('Error', 'Failed to update profile.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleShare = async () => {
@@ -326,8 +427,24 @@ export default function ProfileScreen() {
     }));
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}> 
+        <Text style={{ color: theme.text, fontSize: 18 }}>Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}> 
+        <Text style={{ color: 'red', fontSize: 18 }}>{error}</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.white }]} key={languageKey}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> key={languageKey}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContainer, { backgroundColor: COLORS.white }]}
@@ -336,9 +453,11 @@ export default function ProfileScreen() {
       >
 
         <View style={[styles.header, { borderBottomColor: theme.border }]} > 
-          <View style={{ width: 24 }} />
-          <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={24} color={theme.primary} />
+          <TouchableOpacity onPress={() => navigation.navigate('Store')}>
+            <Ionicons name="cart-outline" size={24} color={theme.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsAbsolute} onPress={() => navigation.navigate('Settings')}>
+            <Ionicons name="settings-outline" size={28} color={theme.primary} />
           </TouchableOpacity>
         </View>
 
@@ -353,7 +472,7 @@ export default function ProfileScreen() {
             )}
             <View style={styles.profileStats}>
               <View style={styles.statColumn}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{profileData.posts}</Text>
+                <Text style={[styles.statValue, { color: theme.text }]}>{profileData.tokens !== undefined ? profileData.tokens : 0}</Text>
                 <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{t('posts')}</Text>
               </View>
               <View style={styles.statColumn}>
@@ -432,7 +551,6 @@ export default function ProfileScreen() {
         )}
 
 
-
         {/* Only show achievements if public or if this is the user's own profile */}
         {(profileData.achievementsPublic || isOwnProfile) && (
           <View style={[styles.achievementsSection, { backgroundColor: theme.card }]}> 
@@ -486,7 +604,11 @@ export default function ProfileScreen() {
 
       <TouchableOpacity 
         style={styles.fabButton}
-        onPress={() => setIsChatbotVisible(true)}
+        onPress={async () => {
+          const { playChatbotSound } = await import('../utils/sound');
+          playChatbotSound();
+          setIsChatbotVisible(true);
+        }}
       >
         <LinearGradient
           colors={[theme.primary, '#60A5FA']}
@@ -514,6 +636,14 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  settingsAbsolute: {
+    position: 'absolute',
+    top: 10,
+    right: 16,
+    zIndex: 10,
+    backgroundColor: 'transparent',
+    padding: 5,
+  },
   profileHeaderTitleWrapper: {
     alignItems: 'center',
     marginTop: 36, // legacy, not used for lower title

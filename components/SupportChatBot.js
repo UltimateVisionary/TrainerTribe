@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../ThemeContext';
+import { fetchDeepSeekResponse } from '../utils/deepseek';
+import { DEEPSEEK_API_KEY } from '@env';
+import { SUPPORT_SYSTEM_PROMPT } from '../utils/supportGuideline';
 
 const FAQ_ANSWERS = {
   'password': 'To reset your password, go to Profile > Settings > Change Password and follow the prompts.',
@@ -20,10 +23,10 @@ function getFAQAnswer(question) {
   for (const keyword in FAQ_ANSWERS) {
     if (lower.includes(keyword)) return FAQ_ANSWERS[keyword];
   }
-  return "I'm here to help with support questions! Please describe your issue or type 'contact' to reach our team.";
+  return null;
 }
 
-export default function SupportChatBot() {
+export default function SupportChatBot({ apiKey = null }) {
   // Pulsing Glow Animation
   const glowAnim = useRef(new Animated.Value(0.7)).current;
   useEffect(() => {
@@ -36,17 +39,42 @@ export default function SupportChatBot() {
   }, [glowAnim]);
   const { theme } = useTheme();
   const [messages, setMessages] = useState([
-    { id: '1', text: 'Hi! I am the TrainerTribe Support Bot. Ask me anything about using the app or getting help.', sender: 'bot' },
+    { id: '1', text: 'Hi! I am TrainerTribe Ai. Ask me anything about fitness, nutrition, or app support!', sender: 'bot' },
   ]);
+  const flatListRef = useRef(null);
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!input.trim()) return;
     const userMsg = { id: Date.now().toString(), text: input, sender: 'user' };
-    const botMsg = { id: (Date.now() + 1).toString(), text: getFAQAnswer(input), sender: 'bot' };
-    setMessages(prev => [...prev, userMsg, botMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setIsTyping(true);
+    // Check if input is a support-specific FAQ
+    const faq = getFAQAnswer(input);
+    if (faq) {
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: faq, sender: 'bot' }]);
+        setIsTyping(false);
+      }, 800);
+      return;
+    }
+    // Otherwise, call DeepSeek logic
+    try {
+      const reply = await fetchDeepSeekResponse({ prompt: input, apiKey: DEEPSEEK_API_KEY, systemPrompt: SUPPORT_SYSTEM_PROMPT });
+      setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), text: reply, sender: 'bot' }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { id: (Date.now() + 3).toString(), text: 'Sorry, I could not connect to DeepSeek. ' + err.message, sender: 'bot' }]);
+    }
+    setIsTyping(false);
   };
+
+  useEffect(() => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -64,8 +92,9 @@ export default function SupportChatBot() {
             },
           ]}
         />
-        <View style={[styles.chatContainer, { backgroundColor: theme.card, borderColor: theme.border, position: 'absolute' }]}> 
+        <View style={[styles.chatContainer, { backgroundColor: theme.card, borderColor: theme.border, position: 'absolute', height: 300 }]} pointerEvents="box-none"> 
         <FlatList
+          ref={flatListRef}
           data={messages}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
@@ -75,19 +104,30 @@ export default function SupportChatBot() {
               </View>
             </View>
           )}
-          contentContainerStyle={{ padding: 12 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 56 }}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          style={{ height: 210 }}
+          keyboardShouldPersistTaps="handled"
+          pointerEvents="auto"
         />
+        {isTyping && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingBottom: 6 }}>
+            <ActivityIndicator size="small" color={theme.primary} style={{ marginRight: 8 }} />
+            <Text style={{ color: theme.textSecondary }}>TrainerTribe Ai is typing...</Text>
+          </View>
+        )}
         <View style={styles.inputRow}>
           <TextInput
             style={[styles.input, { color: theme.text, backgroundColor: theme.input }]} 
-            placeholder="Type your support question..."
+            placeholder="Type your question..."
             placeholderTextColor={theme.textSecondary}
             value={input}
             onChangeText={setInput}
             onSubmitEditing={sendMessage}
             returnKeyType="send"
+            editable={!isTyping}
           />
-          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+          <TouchableOpacity style={styles.sendButton} onPress={sendMessage} disabled={isTyping}>
             <Ionicons name="send" size={22} color={theme.primary} />
           </TouchableOpacity>
         </View>
@@ -96,6 +136,7 @@ export default function SupportChatBot() {
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   glow: {
@@ -121,7 +162,7 @@ const styles = StyleSheet.create({
     minHeight: 260,
     maxHeight: 380,
     overflow: 'hidden',
-    flex: 1,
+    // Removed flex: 1 for independent scroll
   },
   messageRow: {
     flexDirection: 'row',

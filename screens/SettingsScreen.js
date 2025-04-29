@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
+import { useAuth } from '../AuthContext';
 
 const SettingItem = ({ icon, title, subtitle, onPress, hasSwitch, value, onValueChange, showArrow = true, themedStyles, theme }) => (
   <TouchableOpacity 
@@ -51,6 +52,7 @@ const SettingsSection = ({ title, children, themedStyles }) => (
 export default function SettingsScreen({ navigation }) {
   const { t, language, key: languageKey, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(theme.mode === 'dark');
 
@@ -74,12 +76,13 @@ export default function SettingsScreen({ navigation }) {
         {
           text: "Logout",
           style: "destructive",
-          onPress: () => {
-            // Handle logout logic here
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
+          onPress: async () => {
+            try {
+              await signOut();
+              // Auth context will handle the navigation
+            } catch (error) {
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
           }
         }
       ]

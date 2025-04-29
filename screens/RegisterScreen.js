@@ -47,7 +47,7 @@ const RegisterScreen = ({ navigation }) => {
     try {
       // Generate a unique handle based on first name and last name initial
       const user_handle = await generateUniqueHandle(firstName, lastName);
-     
+      
       // Register the user with Supabase
       const { user, error } = await signUp(email, password, firstName, lastName, user_handle);
       

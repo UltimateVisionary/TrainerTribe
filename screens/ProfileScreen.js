@@ -19,7 +19,8 @@ import ChatbotModal from '../components/ChatbotModal';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
-import { fetchUserProfile, updateUserProfile } from '../utils/userProfileUtils';
+import { getProfile, updateProfile } from '../utils/profileService';
+import { getUserPosts } from '../utils/postsService';
 import { COLORS } from '../constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -137,25 +138,52 @@ const RobotIcon = () => (
   </View>
 );
 
-const ContentTab = ({ posts }) => (
+const ContentTab = ({ posts, theme, t, navigation }) => (
   <View style={styles.contentGrid}>
-    {posts.map((post) => (
-      <TouchableOpacity key={post.id} style={styles.contentItem}>
-        <Image source={post.image} style={styles.contentImage} />
-        <View style={styles.contentOverlay}>
-          <View style={styles.contentStats}>
-            <View style={styles.statItem}>
-              <Ionicons name="heart" size={16} color="#fff" />
-              <Text style={styles.statText}>{post.likes}</Text>
+    {posts && posts.length > 0 ? (
+      posts.map((post) => (
+        <TouchableOpacity 
+          key={post.id} 
+          style={styles.contentItem}
+          onPress={() => navigation.navigate('PostDetails', { postId: post.id })}
+        >
+          {post.media_urls && post.media_urls.length > 0 ? (
+            <Image 
+              source={{ uri: post.media_urls[0] }} 
+              style={styles.contentImage} 
+            />
+          ) : (
+            <View style={[styles.contentImagePlaceholder, { backgroundColor: theme.border }]}>
+              <Ionicons name="image-outline" size={32} color={theme.grey} />
             </View>
-            <View style={styles.statItem}>
-              <Ionicons name="chatbubble" size={16} color="#fff" />
-              <Text style={styles.statText}>{post.comments}</Text>
+          )}
+          <View style={styles.contentOverlay}>
+            <View style={styles.contentStats}>
+              <View style={styles.statItem}>
+                <Ionicons name="heart" size={16} color="#fff" />
+                <Text style={styles.statText}>{post.likes_count || '0'}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="chatbubble" size={16} color="#fff" />
+                <Text style={styles.statText}>{post.comments_count || '0'}</Text>
+              </View>
             </View>
+            {post.is_premium && (
+              <View style={styles.premiumBadge}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+              </View>
+            )}
           </View>
-        </View>
-      </TouchableOpacity>
-    ))}
+        </TouchableOpacity>
+      ))
+    ) : (
+      <View style={styles.emptyStateContainer}>
+        <Ionicons name="images-outline" size={48} color={theme.grey} />
+        <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+          {t('noPostsYet')}
+        </Text>
+      </View>
+    )}
   </View>
 );
 
@@ -197,18 +225,23 @@ const SAVED_POSTS = [
   // Populate this with saved post objects, e.g. from user data
 ];
 
-export default function ProfileScreen() {
-  const { t, language, setLanguage, key: languageKey } = useLanguage();
+export default function ProfileScreen({ route }) {
+  const { t, language, key: languageKey } = useLanguage();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const navigation = useNavigation();
+  
+  // Allow viewing other profiles via route params
+  const userId = route?.params?.userId || user?.id;
+  const isOwnProfile = userId === user?.id;
+  
   const [activeTab, setActiveTab] = useState('lifestyle');
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isChatbotVisible, setIsChatbotVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState({
-    firstname: '',
-    lastname: '',
-    user_handle: '',
+    name: '',
+    handle: '',
     bio: '',
     followers: "0",
     following: "0",
@@ -221,56 +254,126 @@ export default function ProfileScreen() {
     followingPublic: true,
     socialLinks: []
   });
+  const [userPosts, setUserPosts] = useState({
+    lifestyle: [],
+    trainer: [],
+    saved: []
+  });
 
-  // Fetch user profile data when component mounts or user changes
+  // Load profile data
   useEffect(() => {
-    const loadUserProfile = async () => {
-      if (!user) return;
+    const loadProfileData = async () => {
+      if (!userId) return;
       
       setLoading(true);
-      console.log('user id: ', user.id);
-      const profile = await fetchUserProfile(user.id, t);
-      console.log('profile firstname: ', profile.firstname);
-      if (profile) {
-        setProfileData(profile);
+      try {
+        // Fetch profile from database
+        const { data: profile } = await getProfile(userId);
+        
+        if (profile) {
+          setProfileData({
+            name: `${profile.firstname} ${profile.lastname}`,
+            handle: profile.user_handle,
+            bio: profile.bio || t('defaultBio'),
+            followers: profile.followers_count?.toString() || "0",
+            following: profile.following_count?.toString() || "0",
+            posts: profile.posts_count?.toString() || "0",
+            image: profile.avatar_url,
+            isVerified: profile.is_verified || false,
+            isPremiumCreator: profile.is_premium || false,
+            email: profile.email || "",
+            achievementsPublic: profile.achievements_public !== false,
+            followingPublic: profile.following_public !== false,
+            socialLinks: profile.social_links || []
+          });
+        }
+        
+        // Load user's posts
+        const { data: posts } = await getUserPosts(userId);
+        
+        if (posts) {
+          // Category-based filtering would happen here
+          const lifestyle = posts.filter(post => post.category === 'lifestyle' || !post.category);
+          const trainer = posts.filter(post => post.category === 'trainer');
+          
+          setUserPosts({
+            lifestyle,
+            trainer,
+            saved: [] // Would be fetched from saved_items table
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-
-    loadUserProfile();
-  }, [user, t]);
-
-  // Ensure profile data updates when language changes, but only for fields that should be translated
-  React.useEffect(() => {
-    if (!profileData.bio || profileData.bio === t('defaultBio', {}, languageKey !== language)) {
-      setProfileData(prev => ({
-        ...prev,
-        bio: t('defaultBio'),
-      }));
-    }
-  }, [t, language, languageKey]);
+    
+    loadProfileData();
+  }, [userId, t]);
 
   const handleEditProfile = async (updatedData) => {
-    if (!user) return;
+    if (!isOwnProfile) return;
     
-    // Update local state immediately for better UX
+    // Convert name to firstname, lastname for backend
+    let updates = {};
+    
+    if (updatedData.name) {
+      const nameParts = updatedData.name.split(' ');
+      const firstname = nameParts[0];
+      const lastname = nameParts.slice(1).join(' ') || '';
+      
+      updates.firstname = firstname;
+      updates.lastname = lastname;
+    }
+    
+    // Map frontend fields to backend fields
+    if (updatedData.handle) updates.user_handle = updatedData.handle;
+    if (updatedData.bio) updates.bio = updatedData.bio;
+    if (updatedData.image) updates.avatar_url = updatedData.image;
+    if (updatedData.socialLinks) updates.social_links = updatedData.socialLinks;
+    if (updatedData.achievementsPublic !== undefined) updates.achievements_public = updatedData.achievementsPublic;
+    if (updatedData.followingPublic !== undefined) updates.following_public = updatedData.followingPublic;
+    
+    // Update local state for immediate UI feedback
     setProfileData({
-      ...profileData,
-      ...updatedData,
-    });
-    
-    // Update profile in database
-    await updateUserProfile(user.id, {
       ...profileData,
       ...updatedData
     });
+    
+    try {
+      // Save to database
+      await updateProfile(user.id, updates);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      
+      // On error, refresh profile data
+      const { data: profile } = await getProfile(userId);
+      if (profile) {
+        setProfileData({
+          name: `${profile.firstname} ${profile.lastname}`,
+          handle: profile.user_handle,
+          bio: profile.bio || t('defaultBio'),
+          followers: profile.followers_count?.toString() || "0",
+          following: profile.following_count?.toString() || "0",
+          posts: profile.posts_count?.toString() || "0",
+          image: profile.avatar_url,
+          isVerified: profile.is_verified || false,
+          isPremiumCreator: profile.is_premium || false,
+          email: profile.email || "",
+          achievementsPublic: profile.achievements_public !== false,
+          followingPublic: profile.following_public !== false,
+          socialLinks: profile.social_links || []
+        });
+      }
+    }
   };
 
   const handleShare = async () => {
     try {
       const result = await Share.share({
-        message: t('shareProfileMessage', {name: profileData.firstname, bio: profileData.bio, handle: profileData.user_handle}),
-        title: t('shareProfileTitle', {name: profileData.firstname}),
+        message: t('shareProfileMessage', {name: profileData.name, bio: profileData.bio, handle: profileData.handle}),
+        title: t('shareProfileTitle', {name: profileData.name}),
       });
     } catch (error) {
       alert(t('errorSharingProfile')); // Translate error message
@@ -293,51 +396,18 @@ export default function ProfileScreen() {
     { icon: "people", titleKey: "community", descriptionKey: "communityDesc" },
   ];
 
-  const [lifestylePosts] = useState([
-    {
-      id: '1',
-      image: require('../assets/featured_workout.jpg'),
-      likes: '1.2K',
-      comments: '89',
-      isPremium: false,
-    },
-    // Add more lifestyle posts here
-  ]);
-
-  const [trainerPosts] = useState([
-    {
-      id: '2',
-      image: require('../assets/trainer1.jpg'),
-      likes: '956',
-      comments: '67',
-      isPremium: true,
-    },
-    // Add more trainer posts here
-  ]);
-
-  const [savedPosts] = useState([
-    // Populate this with saved post objects, e.g. from user data
-  ]);
-
-  const navigation = useNavigation();
-
-  // Use actual auth logic to determine if the current user is the profile owner
-  const isOwnProfile = true; // Currently we only show the user's own profile
-
   // Handler for toggling achievement visibility
   const handleToggleAchievementsVisibility = () => {
-    setProfileData((prev) => ({
-      ...prev,
-      achievementsPublic: !prev.achievementsPublic,
-    }));
+    handleEditProfile({
+      achievementsPublic: !profileData.achievementsPublic
+    });
   };
 
   // Handler for toggling following visibility
   const handleToggleFollowingVisibility = () => {
-    setProfileData((prev) => ({
-      ...prev,
-      followingPublic: !prev.followingPublic,
-    }));
+    handleEditProfile({
+      followingPublic: !profileData.followingPublic
+    });
   };
 
   return (
@@ -395,7 +465,7 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.profileInfo}>
                 <View style={styles.nameContainer}>
-                  <Text style={[styles.name, { color: theme.text }]}>{`${profileData.firstname} ${profileData.lastname}`}</Text>
+                  <Text style={[styles.name, { color: theme.text }]}>{profileData.name}</Text>
                   {profileData.isVerified && (
                     <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
                   )}
@@ -405,7 +475,7 @@ export default function ProfileScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={[styles.handle, { color: theme.textSecondary }]}>@{profileData.user_handle}</Text>
+                <Text style={[styles.handle, { color: theme.textSecondary }]}>@{profileData.handle}</Text>
                 <Text style={[styles.bio, { color: theme.text }]}>{profileData.bio}</Text>
                 {profileData.socialLinks && profileData.socialLinks.length > 0 && (
                   <View style={styles.socialLinksContainer}>
@@ -503,9 +573,9 @@ export default function ProfileScreen() {
                   />
                 </TouchableOpacity>
               </View>
-              {activeTab === 'lifestyle' && <ContentTab posts={lifestylePosts} />}
-              {activeTab === 'trainer' && <ContentTab posts={trainerPosts} />}
-              {activeTab === 'saved' && <ContentTab posts={savedPosts} />}
+              {activeTab === 'lifestyle' && <ContentTab posts={userPosts.lifestyle} theme={theme} t={t} navigation={navigation} />}
+              {activeTab === 'trainer' && <ContentTab posts={userPosts.trainer} theme={theme} t={t} navigation={navigation} />}
+              {activeTab === 'saved' && <ContentTab posts={userPosts.saved} theme={theme} t={t} navigation={navigation} />}
             </View>
           </ScrollView>
 
@@ -927,6 +997,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  contentImagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateText: {
     marginTop: 16,
     fontSize: 16,
     fontWeight: '500',

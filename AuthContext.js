@@ -16,6 +16,33 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Validate that the user exists in the database
+  const validateUser = async (authUser) => {
+    if (!authUser || !authUser.id) return null;
+    
+    try {
+      // Check if user exists in the profiles table
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+      
+      if (error || !data) {
+        console.error('User validation failed:', error || 'User does not exist in profiles');
+        // User not found in profiles table, sign them out
+        await supabase.auth.signOut();
+        return null;
+      }
+      
+      // User is valid
+      return { ...authUser, profile: data };
+    } catch (error) {
+      console.error('Error validating user:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Check for active session on mount
     const checkUser = async () => {
@@ -24,11 +51,15 @@ export const AuthProvider = ({ children }) => {
         if (error) {
           throw error;
         }
+        
         if (session?.user) {
-          setUser(session.user);
+          // Validate the user exists in our database
+          const validatedUser = await validateUser(session.user);
+          setUser(validatedUser);
         }
       } catch (error) {
         console.error('Error checking user session:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -40,7 +71,9 @@ export const AuthProvider = ({ children }) => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
-          setUser(session.user);
+          // Validate the user exists in our database
+          const validatedUser = await validateUser(session.user);
+          setUser(validatedUser);
         } else {
           setUser(null);
         }
@@ -56,22 +89,19 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Sign up with email and password
-  const signUp = async (email, password, firstName, lastName, handle) => {
+  const signUp = async (email, password, firstName, lastName, user_handle) => {
     try {
       setLoading(true);
-
-      console.log('values: ', email, password, firstName, lastName, handle);
       
       // Register user in Supabase
-      const { data: { user }, error } = await supabase.auth.signUp({
+      const { data: { user: newUser }, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: `${firstName} ${lastName}`,
-            user_handle: handle,
             firstname: firstName,
             lastname: lastName,
+            user_handle: user_handle,
           },
         },
       });
@@ -79,20 +109,29 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
       
       // Create initial profile record
-      // if (user) {
-      //   try {
-      //     await supabase.from('profiles').upsert({
-      //       id: user.id,
-      //       firstname: firstName,
-      //       lastname: lastName,
-      //       user_handle: handle,
-      //     });
-      //   } catch (profileError) {
-      //     console.error('Error creating initial profile:', profileError);
-      //   }
-      // }
+      if (newUser) {
+        try {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: newUser.id,
+            firstname: firstName,
+            lastname: lastName,
+            user_handle: user_handle,
+            email: email,
+            created_at: new Date(),
+            updated_at: new Date(),
+          });
+          
+          if (profileError) {
+            console.error('Error creating profile:', profileError);
+            throw new Error('Failed to create user profile. Please try again.');
+          }
+        } catch (profileError) {
+          console.error('Error creating initial profile:', profileError);
+          throw new Error('Failed to create user profile. Please try again.');
+        }
+      }
       
-      return { user, error: null };
+      return { user: newUser, error: null };
     } catch (error) {
       return { user: null, error: error.message };
     } finally {
@@ -104,13 +143,20 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       setLoading(true);
-      const { data: { user }, error } = await supabase.auth.signInWithPassword({
+      const { data: { user: authUser }, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       if (error) throw error;
-      return { user, error: null };
+      
+      // Validate user exists in profiles table
+      const validatedUser = await validateUser(authUser);
+      if (!validatedUser) {
+        throw new Error('User account not found. Please contact support.');
+      }
+      
+      return { user: validatedUser, error: null };
     } catch (error) {
       return { user: null, error: error.message };
     } finally {
